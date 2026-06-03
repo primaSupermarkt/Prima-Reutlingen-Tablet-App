@@ -2,7 +2,7 @@
 // SERVICE-WORKER.JS — Cache-Version erhöht um alten Cache zu killen
 // ═══════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'prima-app-v3001'; // ← erhöht von v1001
+const CACHE_NAME = 'prima-app-v3002'; // ← erhöht von v1001
 
 const FILES_TO_CACHE = [
   './',
