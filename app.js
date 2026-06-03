@@ -538,26 +538,8 @@ function openOv(id){
   const el=document.getElementById(id);
   if(el){
     el.classList.add('show');
-    // PIN-Pad Listener für ov-pw
-    if(id==='ov-pw'){
-      pwPinReset(); // Platzhalter werden in pwPinReset gesetzt
-      setTimeout(function(){
-        const disp=document.getElementById('pw-pin-display');
-        if(!disp) return;
-        document.querySelectorAll('.pw-pin-btn').forEach(function(btn){
-          // Entferne alte Listener durch Klonen
-          const nb=btn.cloneNode(true);
-          btn.parentNode.replaceChild(nb,btn);
-          nb.addEventListener('click',function(){
-            const k=this.getAttribute('data-k');
-            let cur=disp.getAttribute('data-pin')||'';
-            if(k==='⌫'){cur=cur.slice(0,-1);}
-            else if(cur.length<20){cur+=k;}
-            disp.setAttribute('data-pin',cur);
-            disp.textContent=cur?'●'.repeat(Math.min(cur.length,8))+(cur.length>8?'…':''):'';
-          });
-        });
-      },50);
+    if(id==='ov-pw' && typeof pwPinReset === 'function'){
+      pwPinReset();
     }
   }
 }
@@ -1234,7 +1216,6 @@ let currentHRTab = 'zeiten';
 try { if (typeof renderInfo === 'function') renderInfo(); } catch(e) { console.warn('renderInfo Fehler:', e); }
 try { if (typeof updateSLBadge === 'function') updateSLBadge(); } catch(e) { console.warn('updateSLBadge Fehler:', e); }
 try { if (typeof updateBadges === 'function') updateBadges(); } catch(e) { console.warn('updateBadges Fehler:', e); }
-
 // Immer auf Home starten
 try { if (typeof initFirebase === 'function') initFirebase(); } catch(e) { console.warn('initFirebase Fehler:', e); }
 
@@ -1244,9 +1225,9 @@ try { if (typeof initFirebase === 'function') initFirebase(); } catch(e) { conso
 bt('tile-early',function(){goBereich('early');});
 bt('tile-mid',function(){goBereich('mid');});
 bt('tile-late',function(){goBereich('late');});
-bt('tile-info',function(){goInfo();});
-bt('tile-sl',function(){askSL();});
-bt('tile-admin',function(){askAdmin();});
+bt('tile-info',function(){go('s-info');});
+bt('tile-sl',function(){ if(typeof askSL==='function') askSL(); });
+bt('tile-admin',function(){ if(typeof askAdmin==='function') askAdmin(); });
 })();
 
 
