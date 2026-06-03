@@ -726,100 +726,196 @@ function updateUrlaubHinweis(name) {
   hint.style.display = 'block';
 }
 
+function hrMonthDays(year, monthIndex) {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function hrIsWeekend(datumStr) {
+  var d = new Date(datumStr + 'T12:00:00');
+  var day = d.getDay();
+  return day === 0 || day === 6;
+}
+
+function hrWorkdaysInMonth(year, monthIndex) {
+  var days = hrMonthDays(year, monthIndex);
+  var count = 0;
+  for(var i=1;i<=days;i++) {
+    var d = new Date(year, monthIndex, i, 12, 0, 0);
+    var wd = d.getDay();
+    if(wd !== 0 && wd !== 6) count++;
+  }
+  return count;
+}
+
+function hrDateInMonth(datumStr, yyyyMm) {
+  return typeof datumStr === 'string' && datumStr.indexOf(yyyyMm) === 0;
+}
+
+function hrOverlapMin(aStart, aEnd, bStart, bEnd) {
+  var s = Math.max(aStart, bStart);
+  var e = Math.min(aEnd, bEnd);
+  return Math.max(0, e - s);
+}
+
+function hrCalcEntryIntervals(z) {
+  if(!z || !z.istStart || !z.istEnd) return [];
+  var p1 = String(z.istStart).split(':'), p2 = String(z.istEnd).split(':');
+  var sh = parseInt(p1[0],10), sm = parseInt(p1[1],10), eh = parseInt(p2[0],10), em = parseInt(p2[1],10);
+  if(isNaN(sh)||isNaN(sm)||isNaN(eh)||isNaN(em)) return [];
+  var start = sh*60+sm;
+  var end = eh*60+em;
+  if(end <= start) end += 24*60;
+  var pause = parseInt(z.pause||0,10) || 0;
+  // Pause wird vorsichtig am Ende abgezogen. So werden Nachtstunden 04:00–06:00 nicht versehentlich reduziert.
+  end = Math.max(start, end - pause);
+  return [{start:start, end:end}];
+}
+
+function hrCalcZuschlagMinuten(z) {
+  var intervals = hrCalcEntryIntervals(z);
+  var nachtMin = 0;
+  var soFtMin = 0;
+  if(!intervals.length) return {nachtMin:0, soFtMin:0, isSunday:false, isHoliday:false};
+  var d = new Date(z.datum + 'T12:00:00');
+  var isSunday = d.getDay() === 0;
+  var isHoliday = isFeiertag(z.datum);
+  intervals.forEach(function(iv){
+    // Nachtzuschlag nach aktueller Prima-Regel: nur 04:00 bis 06:00 Uhr.
+    // Bei Schichten über Mitternacht zusätzlich 04:00–06:00 des Folgetages berücksichtigen.
+    nachtMin += hrOverlapMin(iv.start, iv.end, 4*60, 6*60);
+    nachtMin += hrOverlapMin(iv.start, iv.end, 28*60, 30*60);
+    // Sonntag/Feiertag: nur einmal 25%, auch wenn Sonntag und Feiertag zusammenfallen.
+    if(isSunday || isHoliday) soFtMin += (iv.end - iv.start);
+  });
+  return {nachtMin:nachtMin, soFtMin:soFtMin, isSunday:isSunday, isHoliday:isHoliday};
+}
+
+function hrApprovedVacationDaysInMonth(name, yyyyMm) {
+  var sum = 0;
+  (urlaubAntraege||[]).forEach(function(a){
+    if(!a || a.ma !== name || a.status !== 'genehmigt') return;
+    if(a.von && hrDateInMonth(a.von, yyyyMm)) {
+      sum += parseFloat(a.urlaubTage || 0) || 0;
+      return;
+    }
+    // Fallback: falls der Antrag den Monat schneidet, aber keine Tage je Monat aufgeteilt sind.
+    if(a.von && a.bis) {
+      var monthStart = new Date(yyyyMm + '-01T12:00:00');
+      var y = monthStart.getFullYear(), m = monthStart.getMonth();
+      var monthEnd = new Date(y, m + 1, 0, 12, 0, 0);
+      var von = new Date(a.von + 'T12:00:00');
+      var bis = new Date(a.bis + 'T12:00:00');
+      if(von <= monthEnd && bis >= monthStart) {
+        // Wenn keine saubere Monatsaufteilung vorhanden ist, wird der Antrag vollständig im Monat des Startdatums gezählt.
+        // Das verhindert falsche Doppelzählungen über Monatsgrenzen.
+        if(a.von.slice(0,7) === yyyyMm) sum += parseFloat(a.urlaubTage || 0) || 0;
+      }
+    }
+  });
+  return sum;
+}
+
 function renderHRGehalt() {
   var pane = document.getElementById('hr-gehalt-pane');
   if(!pane) return;
   pane.innerHTML = '';
   var now = new Date();
+  var year = now.getFullYear();
+  var monthIndex = now.getMonth();
   var thisMonth = now.toISOString().slice(0,7);
+  var workdays = hrWorkdaysInMonth(year, monthIndex);
 
   var titel = document.createElement('div');
   titel.style.cssText = 'font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:12px;';
-  titel.textContent = '💰 Gehaltsübersicht · ' + now.toLocaleDateString('de-DE',{month:'long',year:'numeric'});
+  titel.textContent = '💰 Gehalt / Stundenkonto · ' + now.toLocaleDateString('de-DE',{month:'long',year:'numeric'});
   pane.appendChild(titel);
+
+  var info = document.createElement('div');
+  info.style.cssText = 'background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#1e3a5f;line-height:1.45;';
+  info.innerHTML = '<strong>Hinweis:</strong> Hier wird kein Ist-Gehalt berechnet. Das Monatsfixgehalt bleibt fix. Angezeigt werden nur Soll/Ist-Stunden, Plus/Minus und steuerfreie Zuschläge.';
+  pane.appendChild(info);
 
   names.forEach(function(name){
     var prof = maProfiles[name]||{};
-    var brutto = prof.bruttoGehalt||0;
-    var stundenSoll = prof.stundenSoll||0;
-    var stundenlohn = (brutto&&stundenSoll) ? (brutto*12)/(stundenSoll*52) : 0;
-    var planId = prof.zuschlagsPlanId||null;
+    var brutto = parseFloat(prof.bruttoGehalt||0) || 0;
+    var wochenSoll = parseFloat(prof.stundenSoll||0) || 0;
+    var sollTagStd = wochenSoll ? (wochenSoll / 5) : 0;
+    var sollMonatStd = sollTagStd * workdays;
+    var urlaubTage = hrApprovedVacationDaysInMonth(name, thisMonth);
+    var urlaubStd = urlaubTage * sollTagStd;
+    var sollNachUrlaub = Math.max(0, sollMonatStd - urlaubStd);
 
-    var eintraege = zeiterfassung.filter(function(z){ return z.ma===name && z.datum.startsWith(thisMonth); });
-    var nettoStd = eintraege.reduce(function(s,z){ return s+(z.nettoMin||0); },0)/60;
-    var istGehalt = stundenlohn ? stundenlohn*nettoStd : 0;
+    var eintraege = (zeiterfassung||[]).filter(function(z){ return z.ma===name && z.datum && z.datum.startsWith(thisMonth); });
+    var istStd = eintraege.reduce(function(s,z){ return s + ((parseInt(z.nettoMin||0,10)||0)/60); },0);
+    var plusMinus = istStd - sollNachUrlaub;
 
-    // Zuschläge getrennt nach §3b EStG
-    var zNacht=0, zSonntag=0, zFeiertag=0, zNachtSo=0, zNachtFt=0;
+    // Für Zuschläge wird ein rechnerischer Basis-Stundenwert aus Fixgehalt / monatlicher Sollzeit verwendet.
+    // Das ist KEIN Ist-Gehalt, sondern nur die Grundlage für steuerfreie Zuschlagsbeträge.
+    var basisStundenwert = (brutto && sollMonatStd) ? (brutto / sollMonatStd) : 0;
+    var nachtMin = 0, soFtMin = 0, sonntagMin = 0, feiertagMin = 0;
     eintraege.forEach(function(z){
-      if(!z.istStart||!z.istEnd) return;
-      var p1=z.istStart.split(':'), p2=z.istEnd.split(':');
-      var sh=parseInt(p1[0]),sm=parseInt(p1[1]),eh=parseInt(p2[0]),em=parseInt(p2[1]);
-      var brMin=(eh*60+em)-(sh*60+sm); if(brMin<0) brMin+=24*60;
-      var tagTyp = new Date(z.datum+'T12:00:00').getDay()===0?'so':isFeiertag(z.datum)?'ft':'wt';
-      var res = calcZuschlaege(z.datum,sh*60+sm,sh*60+sm+brMin,tagTyp,planId);
-      var ze  = calcZuschlagEuro(res.nachtMin,res.soFtMin,res.nachtSoFtMin,stundenlohn,planId);
-      zNacht += ze.zNacht;
-      if(tagTyp==='so'){ zSonntag+=ze.zSoFt; zNachtSo+=ze.zNachtSoFt; }
-      else if(tagTyp==='ft'){ zFeiertag+=ze.zSoFt; zNachtFt+=ze.zNachtSoFt; }
+      var m = hrCalcZuschlagMinuten(z);
+      nachtMin += m.nachtMin;
+      if(m.isHoliday) feiertagMin += m.soFtMin; // Feiertag gewinnt, wenn Sonntag + Feiertag zusammenfallen.
+      else if(m.isSunday) sonntagMin += m.soFtMin;
+      soFtMin += m.soFtMin;
     });
-    var zGesamt = zNacht+zSonntag+zFeiertag+zNachtSo+zNachtFt;
-    var plan = getZuschlagsPlan(planId);
+    var nachtStd = nachtMin/60;
+    var sonntagStd = sonntagMin/60;
+    var feiertagStd = feiertagMin/60;
+    var soFtStd = soFtMin/60;
+    var nachtEuro = basisStundenwert * nachtStd * 0.25;
+    var sonntagEuro = basisStundenwert * sonntagStd * 0.25;
+    var feiertagEuro = basisStundenwert * feiertagStd * 0.25;
+    var zuschlagGesamt = nachtEuro + sonntagEuro + feiertagEuro;
+
+    var pmColor = plusMinus >= 0 ? '#15803d' : '#dc2626';
+    var pmText = (plusMinus>=0?'+':'') + plusMinus.toFixed(2) + ' h';
 
     var card = document.createElement('div');
     card.style.cssText = 'background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 7px rgba(0,0,0,.07);';
 
+    var smallBox = function(label, value, color) {
+      return '<div style="background:#f9f9f9;border-radius:8px;padding:8px;">'+
+        '<div style="font-size:10px;color:#888;">'+label+'</div>'+ 
+        '<div style="font-size:15px;font-weight:800;color:'+(color||'#1a1a1a')+';">'+value+'</div>'+ 
+      '</div>';
+    };
+    var zuschlagRow = function(ico, label, std, euro, bg, col) {
+      return '<div style="background:'+bg+';border-radius:8px;padding:8px 10px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;">'+
+        '<div><div style="font-size:12px;font-weight:700;color:'+col+';">'+ico+' '+label+'</div>'+ 
+        '<div style="font-size:10px;color:#999;">25% steuerfrei · '+std.toFixed(2)+' h</div></div>'+ 
+        '<div style="font-size:14px;font-weight:900;color:'+col+';">'+(basisStundenwert?euro.toFixed(2)+' €':'–')+'</div></div>';
+    };
+
     card.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'+
-        '<div style="font-size:15px;font-weight:800;">'+name+'</div>'+
-        '<div style="font-size:11px;background:#f0f4ff;color:#1e3a5f;border-radius:6px;padding:3px 8px;">'+( plan?plan.name:'Kein Plan')+'</div>'+
-      '</div>'+
+        '<div style="font-size:15px;font-weight:800;">'+name+'</div>'+ 
+        '<div style="font-size:11px;background:#f0f4ff;color:#1e3a5f;border-radius:6px;padding:3px 8px;">Fixgehalt</div>'+ 
+      '</div>'+ 
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'+
-        '<div style="background:#f9f9f9;border-radius:8px;padding:8px;">'+
-          '<div style="font-size:10px;color:#888;">Brutto/Monat</div>'+
-          '<div style="font-size:15px;font-weight:800;color:#1a1a1a;">'+(brutto?brutto.toFixed(2)+' €':'–')+'</div>'+
-        '</div>'+
-        '<div style="background:#f9f9f9;border-radius:8px;padding:8px;">'+
-          '<div style="font-size:10px;color:#888;">Stundenlohn</div>'+
-          '<div style="font-size:15px;font-weight:800;color:#1a1a1a;">'+(stundenlohn?stundenlohn.toFixed(2)+' €/h':'–')+'</div>'+
-        '</div>'+
-        '<div style="background:#f9f9f9;border-radius:8px;padding:8px;">'+
-          '<div style="font-size:10px;color:#888;">Ist-Stunden</div>'+
-          '<div style="font-size:15px;font-weight:800;color:#1e3a5f;">'+nettoStd.toFixed(1)+'h</div>'+
-        '</div>'+
-        '<div style="background:#f9f9f9;border-radius:8px;padding:8px;">'+
-          '<div style="font-size:10px;color:#888;">Ist-Gehalt ca.</div>'+
-          '<div style="font-size:15px;font-weight:800;color:#1e3a5f;">'+(istGehalt?istGehalt.toFixed(2)+' €':'–')+'</div>'+
-        '</div>'+
+        smallBox('Monatsfixgehalt', brutto ? brutto.toFixed(2)+' €' : '–')+
+        smallBox('Wochen-Soll', wochenSoll ? wochenSoll.toFixed(1)+' h' : '–')+
+        smallBox('Monats-Soll', sollMonatStd ? sollMonatStd.toFixed(1)+' h' : '–')+
+        smallBox('Urlaub abgezogen', urlaubTage ? (urlaubTage.toFixed(1)+' Tage / '+urlaubStd.toFixed(1)+' h') : '0 Tage')+
+        smallBox('Soll nach Urlaub', sollNachUrlaub.toFixed(1)+' h')+
+        smallBox('Ist-Stunden', istStd.toFixed(2)+' h', '#1e3a5f')+
+        smallBox('Plus / Minus', pmText, pmColor)+
+        smallBox('Basis für Zuschläge', basisStundenwert ? basisStundenwert.toFixed(2)+' €/h' : '–')+
+      '</div>'+ 
+      '<div style="border-top:1.5px solid #f0f0f0;padding-top:10px;margin-top:2px;">'+
+        '<div style="font-size:11px;font-weight:700;color:#1e3a5f;margin-bottom:8px;">💰 Steuerfreie Zuschläge separat</div>'+ 
+        zuschlagRow('🌙','Nacht 04:00–06:00', nachtStd, nachtEuro, '#fef3c7', '#92400e')+
+        zuschlagRow('☀️','Sonntag', sonntagStd, sonntagEuro, '#dcfce7', '#15803d')+
+        zuschlagRow('🎉','Feiertag', feiertagStd, feiertagEuro, '#ede9fe', '#6d28d9')+
+        '<div style="font-size:10px;color:#888;margin:6px 0 8px;line-height:1.35;">Sonntag + Feiertag am gleichen Tag wird nur einmal gezählt. Nacht wird zusätzlich gezählt.</div>'+ 
+        '<div style="background:#1e3a5f;border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'+
+          '<div><div style="font-size:13px;font-weight:800;color:#fff;">Gesamt steuerfreie Zuschläge</div>'+ 
+          '<div style="font-size:10px;color:rgba(255,255,255,.6);">Zusätzlich zum Monatsfixgehalt</div></div>'+ 
+          '<div style="font-size:17px;font-weight:900;color:#fff;">'+(basisStundenwert?zuschlagGesamt.toFixed(2)+' €':'–')+'</div>'+ 
+        '</div>'+ 
       '</div>';
 
-    // Zuschläge (immer anzeigen für Steuerberater)
-    var zDiv = document.createElement('div');
-    zDiv.style.cssText = 'border-top:1.5px solid #f0f0f0;padding-top:10px;margin-top:2px;';
-
-    var zRow = function(ico, label, para, val, bg, col) {
-      return '<div style="background:'+bg+';border-radius:8px;padding:8px 10px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;">'+
-        '<div><div style="font-size:12px;font-weight:700;color:'+col+';">'+ico+' '+label+'</div>'+
-        '<div style="font-size:10px;color:#999;">'+para+'</div></div>'+
-        '<div style="font-size:14px;font-weight:900;color:'+col+';">'+val+'</div></div>';
-    }
-
-    zDiv.innerHTML =
-      '<div style="font-size:11px;font-weight:700;color:#1e3a5f;margin-bottom:8px;">💰 Steuerfreie Zuschläge (§3b EStG)</div>'+
-      zRow('🌙','Nachtarbeit','§3b Nr.1 · 22–06 Uhr', zNacht.toFixed(2)+' €','#fef3c7','#92400e')+
-      zRow('☀️','Sonntagsarbeit','§3b Nr.2', zSonntag.toFixed(2)+' €','#dcfce7','#15803d')+
-      zRow('🎉','Feiertagsarbeit','§3b Nr.3', zFeiertag.toFixed(2)+' €','#ede9fe','#6d28d9')+
-      (zNachtSo>0 ? zRow('🌙☀️','Nacht+Sonntag','§3b kombiniert', zNachtSo.toFixed(2)+' €','#fff7ed','#c2410c') : '')+
-      (zNachtFt>0 ? zRow('🌙🎉','Nacht+Feiertag','§3b kombiniert', zNachtFt.toFixed(2)+' €','#f0f4ff','#1e3a5f') : '')+
-      '<div style="background:#1e3a5f;border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'+
-        '<div>'+
-          '<div style="font-size:13px;font-weight:800;color:#fff;">Gesamt Zuschläge</div>'+
-          '<div style="font-size:10px;color:rgba(255,255,255,.6);">Zusätzlich zum Bruttogehalt</div>'+
-        '</div>'+
-        '<div style="font-size:17px;font-weight:900;color:#fff;">'+zGesamt.toFixed(2)+' €</div>'+
-      '</div>';
-
-    card.appendChild(zDiv);
     pane.appendChild(card);
   });
 }
