@@ -4,7 +4,7 @@
 // Cached alle wichtigen Dateien beim ersten Laden.
 // ═══════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'prima-app-v999';
+const CACHE_NAME = 'prima-app-v130000';
 
 // Diese Dateien werden offline gespeichert
 const FILES_TO_CACHE = [
@@ -17,21 +17,21 @@ const FILES_TO_CACHE = [
   './app.js',
   './manifest.json',
   // Hilfsfunktionen
-  './js/utils.js',
+  './utils.js',
   // Schichtleiter-Module
-  './js/sl-report.js',
-  './js/sl-umsatz.js',
-  './js/sl-aufgaben.js',
-  './js/sl-regal.js',
-  './js/schichtleiter.js',
+  './sl-report.js',
+  './sl-umsatz.js',
+  './sl-aufgaben.js',
+  './sl-regal.js',
+  './schichtleiter.js',
   // Feature-Module
-  './js/checklist.js',
-  './js/dashboard.js',
-  './js/admin.js',
-  './js/inventur.js',
-  './js/urlaub.js',
-  './js/hr.js',
-  './js/firebase-sync.js',
+  './checklist.js',
+  './dashboard.js',
+  './admin.js',
+  './inventur.js',
+  './urlaub.js',
+  './hr.js',
+  './firebase-sync.js',
   // Firebase SDK
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js'
