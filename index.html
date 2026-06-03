@@ -8,7 +8,211 @@
 <meta name="apple-mobile-web-app-title" content="Prima">
 <link rel="apple-touch-icon" href="prima_logo.png">
 <title>Prima Supermarkt</title>
-  <link rel="stylesheet" href="styles.css">
+  <style>
+/* ═══════════════════════════════════════════════════════════════
+   STYLES.CSS
+   Prima Supermarkt Mitarbeiter-App
+   Alle Styles der App.
+   ═══════════════════════════════════════════════════════════════ */
+
+
+:root{
+  --black:#0f0f0f;--white:#fff;--gl:#f4f4f4;--gm:#e0e0e0;--gt:#888;
+  --orange:#f0a500;--red:#e94560;--purple:#533483;--green:#16a34a;
+  --teal:#40916c;--blue:#3b82f6;--r:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:var(--gl);min-height:100vh;overflow-x:hidden;}
+.screen{display:none;min-height:100vh;flex-direction:column;}
+.screen.active{display:flex;}
+/* HEADER */
+.hdr{background:var(--black);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.hdr-sub{font-size:11px;color:#666;}
+.back{background:none;border:none;color:#bbb;font-size:14px;cursor:pointer;padding:4px 10px 4px 0;font-family:inherit;}
+.back:active{color:#fff;}
+/* HOME */
+#s-home{background:var(--black);}
+.home-top{padding:22px 20px 12px;flex-shrink:0;display:flex;justify-content:space-between;align-items:flex-start;}
+.home-top h2{font-size:25px;font-weight:900;color:#fff;line-height:1.15;}
+.home-top .dt{font-size:10px;color:#444;margin-top:4px;}
+#live{font-size:13px;font-weight:700;color:#555;}
+.day-bar{margin:0 16px 12px;background:#1a1a1a;border-radius:12px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.day-left{display:flex;align-items:center;gap:10px;}
+.day-txt{font-size:13px;font-weight:700;color:#fff;}
+.day-sub{font-size:10px;color:#555;}
+.tog{display:flex;background:#111;border-radius:8px;overflow:hidden;border:1px solid #333;}
+.tog-btn{background:none;border:none;color:#555;font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer;white-space:nowrap;font-family:inherit;}
+.tog-btn.on{background:#fff;color:#000;border-radius:7px;}
+/* TILES */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:0 16px 16px;flex:1;}
+.tile{border-radius:var(--r);padding:22px 16px 18px;cursor:pointer;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;min-height:148px;border:none;text-align:left;transition:transform .12s;}
+.tile:active{transform:scale(.96);}
+.t-early{background:linear-gradient(135deg,#f0a500,#c07800);}
+.t-mid{background:linear-gradient(135deg,#e94560,#b02040);}
+.t-late{background:linear-gradient(135deg,#533483,#31186e);}
+.t-info{background:linear-gradient(135deg,#40916c,#1b4332);}
+.t-sl{background:linear-gradient(135deg,#0f3460,#050d1a);}
+.t-admin{background:linear-gradient(135deg,#1a1a2e,#0f0f1a);}
+.tile-ico{font-size:30px;margin-bottom:7px;}
+.tile-lbl{font-size:17px;font-weight:900;color:#fff;line-height:1.1;}
+.tile-sub{font-size:10px;color:rgba(255,255,255,.55);margin-top:3px;}
+.tile-arr{position:absolute;right:13px;bottom:13px;font-size:17px;color:rgba(255,255,255,.3);}
+/* NOTIFICATION BADGE */
+.notif-badge{position:absolute;top:12px;right:12px;background:#ef4444;color:#fff;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:800;}
+/* PICKER */
+.picker-body{flex:1;padding:14px 16px 24px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;}
+.ptitle{font-size:20px;font-weight:900;color:var(--black);}
+.psub{font-size:12px;color:var(--gt);margin-top:2px;margin-bottom:5px;}
+.b-card{background:#fff;border-radius:13px;padding:18px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.07);border:2.5px solid transparent;transition:transform .12s;}
+.b-card:active{transform:scale(.98);}
+.b-bake{border-color:var(--orange);}
+.b-laden{border-color:var(--blue);}
+.b-l{display:flex;align-items:center;gap:12px;}
+.b-ico{font-size:32px;}
+.b-name{font-size:17px;font-weight:800;color:var(--black);}
+.b-desc{font-size:11px;color:var(--gt);margin-top:2px;}
+.chev{font-size:17px;color:#ccc;}
+/* TIME LIST */
+.tlist{padding:0 16px 24px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;flex:1;}
+.t-btn{background:#fff;border:none;border-radius:12px;padding:15px 17px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;box-shadow:0 2px 7px rgba(0,0,0,.07);transition:transform .12s;font-family:inherit;}
+.t-btn:active{transform:scale(.98);}
+.t-btn-l{display:flex;align-items:center;gap:12px;}
+.dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+.de{background:var(--orange);}
+.dm{background:var(--red);}
+.dl{background:var(--purple);}
+.t-main{font-size:20px;font-weight:800;color:var(--black);}
+.t-end{font-size:11px;color:var(--gt);margin-top:1px;}
+/* NAME GRID */
+.name-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:14px 16px 24px;overflow-y:auto;flex:1;}
+.name-btn{background:#fff;border:none;border-radius:12px;padding:16px 12px;font-size:15px;font-weight:700;color:var(--black);cursor:pointer;box-shadow:0 2px 7px rgba(0,0,0,.07);transition:transform .12s;text-align:center;font-family:inherit;}
+.name-btn:active{transform:scale(.96);background:var(--black);color:#fff;}
+/* ÜBERGABE BANNER */
+.ubergabe-banner{margin:0 16px 10px;background:#fff3cd;border:2px solid var(--orange);border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.ub-ico{font-size:22px;}
+.ub-title{font-size:13px;font-weight:800;color:#7a4f00;}
+.ub-sub{font-size:11px;color:#a06800;margin-top:1px;}
+/* CHECKLISTE */
+.cl-body{flex:1;overflow-y:auto;padding:10px 14px 18px;display:flex;flex-direction:column;gap:6px;}
+.prog-wrap{height:5px;background:#e0e0e0;flex-shrink:0;}
+.prog-fill{height:100%;transition:width .3s;}
+.cl-sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.3px;color:#999;margin:9px 0 3px 2px;}
+.cl-tbadge{display:inline-flex;align-items:center;gap:3px;background:var(--black);color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:2px 8px;margin-right:5px;}
+/* Task row */
+.cl-row{background:#fff;border-radius:12px;padding:12px 13px;box-shadow:0 1px 6px rgba(0,0,0,.06);border:2px solid transparent;overflow:hidden;}
+.cl-row.done-row{opacity:.5;}
+.cl-row.not-done-row{border-color:#ef4444;background:#fff5f5;}
+.cl-row.warn-row{border-color:#fbbf24;background:#fffbeb;}
+.cl-row.special-row{border-color:var(--orange);background:#fff7ed;}
+.cl-top{display:flex;align-items:center;gap:11px;cursor:pointer;}
+.cl-cb{width:24px;height:24px;border-radius:50%;border:2.5px solid #ddd;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s;}
+.done-row .cl-cb{background:var(--green);border-color:var(--green);color:#fff;}
+.not-done-row .cl-cb{background:#ef4444;border-color:#ef4444;color:#fff;}
+.cl-txt{font-size:13px;font-weight:500;color:#222;flex:1;line-height:1.3;}
+.cl-warn-txt{font-size:11px;color:#b45309;font-weight:600;margin-top:2px;}
+.cl-who{font-size:10px;color:var(--green);font-weight:700;margin-top:2px;}
+.cl-who-nd{font-size:10px;color:#ef4444;font-weight:700;margin-top:2px;}
+/* Action buttons */
+.cl-actions{display:flex;gap:7px;margin-top:9px;padding-top:9px;border-top:1px solid var(--gl);}
+.cl-btn{flex:1;border:none;border-radius:9px;padding:9px 8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
+.btn-done{background:#dcfce7;color:#15803d;}
+.btn-nd{background:#fee2e2;color:#dc2626;}
+.btn-special{background:var(--orange);color:#fff;}
+/* Reason picker */
+.reason-wrap{margin-top:9px;padding-top:9px;border-top:1px solid var(--gl);}
+.reason-label{font-size:11px;font-weight:700;color:#666;margin-bottom:6px;}
+.reason-grid{display:flex;flex-wrap:wrap;gap:6px;}
+.reason-btn{background:var(--gl);border:1.5px solid var(--gm);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:#444;}
+.reason-btn.selected{background:#fee2e2;border-color:#ef4444;color:#dc2626;}
+.done-bar{display:none;background:var(--green);color:#fff;text-align:center;padding:13px;font-weight:800;font-size:13px;flex-shrink:0;}
+.ubergabe-btn{margin:10px 16px;background:var(--black);color:#fff;border:none;border-radius:12px;padding:15px;font-size:14px;font-weight:800;cursor:pointer;width:calc(100% - 32px);font-family:inherit;flex-shrink:0;}
+.ubergabe-btn:active{background:#333;}
+/* ÜBERGABE SCREEN */
+.ub-cl-body{flex:1;overflow-y:auto;padding:12px 14px 18px;display:flex;flex-direction:column;gap:7px;}
+.ub-row{background:#fff;border-radius:12px;padding:13px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);cursor:pointer;border:2px solid transparent;}
+.ub-row.ok{border-color:var(--green);opacity:.6;}
+.ub-row.nok{border-color:#ef4444;background:#fff5f5;}
+.ub-cb{width:24px;height:24px;border-radius:50%;border:2.5px solid #ddd;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;}
+.ub-row.ok .ub-cb{background:var(--green);border-color:var(--green);color:#fff;}
+.ub-row.nok .ub-cb{background:#ef4444;border-color:#ef4444;color:#fff;}
+.ub-txt{font-size:13px;font-weight:600;color:#222;flex:1;}
+.ub-actions{display:flex;gap:7px;margin-top:9px;padding-top:9px;border-top:1px solid var(--gl);}
+.ub-btn{flex:1;border:none;border-radius:9px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
+/* INFO */
+.info-list{padding:0 16px 24px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;flex:1;}
+.i-card{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 7px rgba(0,0,0,.07);}
+.i-hdr{padding:14px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;}
+.i-hdr:active{background:#f8f8f8;}
+.i-title{display:flex;align-items:center;gap:10px;}
+.i-ico{font-size:21px;}
+.i-name{font-size:15px;font-weight:700;color:var(--black);}
+.i-cnt{font-size:10px;color:var(--gt);margin-top:1px;}
+.i-chev{font-size:13px;color:#ccc;transition:transform .2s;}
+.i-card.open .i-chev{transform:rotate(90deg);}
+.i-body{display:none;border-top:1px solid var(--gm);}
+.i-card.open .i-body{display:block;}
+.i-sub{padding:12px 16px 12px 47px;border-bottom:1px solid var(--gl);cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:500;color:#333;}
+.i-sub:last-child{border-bottom:none;}
+.i-sub:active{background:var(--gl);}
+/* ADMIN */
+.admin-body{flex:1;overflow-y:auto;padding:12px 16px 24px;display:flex;flex-direction:column;gap:8px;}
+.a-sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.3px;color:#999;margin:6px 0 3px;}
+.a-card{background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 7px rgba(0,0,0,.07);}
+.a-row{display:flex;align-items:flex-start;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--gl);}
+.a-row:last-child{border-bottom:none;}
+.a-label{font-size:13px;font-weight:600;color:var(--black);flex:1;}
+.a-sub{font-size:10px;color:var(--gt);margin-top:2px;}
+.a-del{background:#fee2e2;border:none;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;color:#dc2626;cursor:pointer;flex-shrink:0;margin-left:8px;font-family:inherit;}
+.a-add{background:var(--black);border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;width:100%;margin-top:6px;font-family:inherit;}
+.a-add:active{background:#333;}
+.name-tag{background:var(--gl);border:1.5px solid var(--gm);border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px;margin:3px;}
+.name-x{background:none;border:none;color:#999;font-size:13px;cursor:pointer;padding:0;font-family:inherit;}
+/* SL DASHBOARD */
+.sl-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px 24px;display:block;}
+.sl-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.sl-stat{background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 7px rgba(0,0,0,.06);text-align:center;}
+.sl-stat-num{font-size:28px;font-weight:900;color:var(--black);}
+.sl-stat-lbl{font-size:11px;color:var(--gt);margin-top:2px;}
+.sl-card{background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 7px rgba(0,0,0,.06);}
+.sl-card-title{font-size:13px;font-weight:800;color:var(--black);margin-bottom:10px;}
+.sl-item{padding:8px 0;border-bottom:1px solid var(--gl);font-size:12px;}
+.sl-item:last-child{border-bottom:none;}
+.sl-item .si-name{font-weight:700;color:var(--black);}
+.sl-item .si-detail{color:var(--gt);margin-top:2px;}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;}
+.sd-green{background:var(--green);}
+.sd-red{background:#ef4444;}
+.sd-orange{background:var(--orange);}
+/* HIST */
+.hist-item{background:#fff;border-radius:11px;padding:11px 13px;box-shadow:0 1px 5px rgba(0,0,0,.06);margin-bottom:6px;}
+.hist-task{font-size:13px;font-weight:600;color:var(--black);}
+.hist-meta{font-size:11px;color:var(--gt);margin-top:2px;}
+.hist-nd{background:#fff5f5;border:1px solid #fecaca;}
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;align-items:center;justify-content:center;padding:18px;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:16px;padding:22px 18px;width:100%;max-width:370px;}
+.modal h3{font-size:17px;font-weight:800;margin-bottom:12px;}
+.modal input,.modal select,.modal textarea{width:100%;border:1.5px solid var(--gm);border-radius:9px;padding:10px 12px;font-size:13px;font-family:inherit;margin-bottom:9px;outline:none;}
+.modal input:focus,.modal select:focus,.modal textarea:focus{border-color:var(--black);}
+.modal-btns{display:flex;gap:9px;margin-top:3px;}
+.m-btn{flex:1;border:none;border-radius:9px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+.m-cancel{background:var(--gl);color:var(--black);}
+.m-ok{background:var(--black);color:#fff;}
+.m-danger{background:#dc2626;color:#fff;}
+.bottom-bar{background:#fff;border-top:1px solid var(--gm);padding:7px 18px 14px;font-size:10px;color:var(--gt);text-align:center;flex-shrink:0;}
+/* BARCODE SCANNER */
+.scan-btn{background:#0f766e;border:none;border-radius:7px;padding:6px 10px;cursor:pointer;color:#fff;font-size:16px;flex-shrink:0;vertical-align:middle;}
+.scan-btn:active{background:#0a5c52;}
+#scan-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:300;flex-direction:column;align-items:center;justify-content:center;}
+#scan-overlay.show{display:flex;}
+#scan-video{width:100%;max-width:420px;border-radius:12px;object-fit:cover;max-height:60vh;}
+.scan-frame{position:relative;width:100%;max-width:420px;}
+.scan-line{position:absolute;top:50%;left:10%;width:80%;height:2px;background:#0f766e;box-shadow:0 0 8px #0f766e;animation:scanAnim 2s ease-in-out infinite;}
+@keyframes scanAnim{0%,100%{top:30%;}50%{top:70%;}}
+.scan-close-btn{margin-top:18px;background:#fff;border:none;border-radius:10px;padding:12px 32px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;}
+
+  </style>
 <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1e3a5f">
 
@@ -631,26 +835,139 @@
   <script src="data.js"></script>
 
   <!-- Hilfsfunktionen (werden von allen Modulen genutzt) -->
-  <script src="js/utils.js"></script>
+  <script src="utils.js"></script>
 
   <!-- Schichtleiter-Module (Reihenfolge beachten: sl-report.js vor sl-aufgaben.js) -->
-  <script src="js/sl-report.js"></script>
-  <script src="js/sl-umsatz.js"></script>
-  <script src="js/sl-aufgaben.js"></script>
-  <script src="js/sl-regal.js"></script>
-  <script src="js/schichtleiter.js"></script>
+  <script src="sl-report.js"></script>
+  <script src="sl-umsatz.js"></script>
+  <script src="sl-aufgaben.js"></script>
+  <script src="sl-regal.js"></script>
+  <script src="schichtleiter.js"></script>
 
   <!-- Weitere Feature-Module -->
-  <script src="js/checklist.js"></script>
-  <script src="js/dashboard.js"></script>
-  <script src="js/admin.js"></script>
-  <script src="js/inventur.js"></script>
-  <script src="js/urlaub.js"></script>
-  <script src="js/hr.js"></script>
-  <script src="js/firebase-sync.js"></script>
+  <script src="checklist.js"></script>
+  <script src="dashboard.js"></script>
+  <script src="admin.js"></script>
+  <script src="inventur.js"></script>
+  <script src="urlaub.js"></script>
+  <script src="hr.js"></script>
+  <script src="firebase-sync.js"></script>
 
   <!-- Hauptanwendung (Kern-Navigation und globaler State) -->
   <script src="app.js"></script>
+
+
+
+<!-- WOCHENAUFGABEN OVERLAYS -->
+<div class="overlay" id="ov-add-weekly" onclick="if(event.target===this)closeOv('ov-add-weekly')">
+  <div class="modal" style="max-height:90vh;overflow-y:auto;">
+    <h3>📅 Wochenaufgabe hinzufügen</h3>
+    <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Aufgabe</label>
+    <input type="text" id="wt-text" placeholder="z.B. Blumen wässern">
+    <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Abschnitt</label>
+    <input type="text" id="wt-section" placeholder="Wochenaufgabe" value="Wochenaufgabe">
+    <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Uhrzeit</label>
+    <input type="text" id="wt-time" placeholder="z.B. 08:00">
+    <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Wochentage</label>
+    <div style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px;">
+      <label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wt-mo" style="width:16px;height:16px;margin-bottom:0;"> Mo</label><label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wt-di" style="width:16px;height:16px;margin-bottom:0;"> Di</label><label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wt-mi" style="width:16px;height:16px;margin-bottom:0;"> Mi</label><label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wt-do" style="width:16px;height:16px;margin-bottom:0;"> Do</label><label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wt-fr" style="width:16px;height:16px;margin-bottom:0;"> Fr</label><label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wt-sa" style="width:16px;height:16px;margin-bottom:0;"> Sa</label><label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wt-so" style="width:16px;height:16px;margin-bottom:0;"> So</label>
+    </div>
+    <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Schicht</label>
+    <select id="wt-schicht" style="width:100%;border:1.5px solid #e0e0e0;border-radius:9px;padding:10px 12px;font-size:13px;font-family:inherit;margin-bottom:10px;outline:none;"><option value="early">🌅 Frühschicht</option><option value="mid">☀️ Mittelschicht</option><option value="late">🌙 Spätschicht</option><option value="all">Alle Schichten</option></select>
+    <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Bereich</label>
+    <select id="wt-bereich" style="width:100%;border:1.5px solid #e0e0e0;border-radius:9px;padding:10px 12px;font-size:13px;font-family:inherit;margin-bottom:10px;outline:none;"><option value="laden">🛒 Laden</option><option value="bake">🥐 Bake-Off</option><option value="all">Alle Bereiche</option></select>
+    <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">⚠️ Warnung (optional)</label>
+    <input type="text" id="wt-warn" placeholder="z.B. Vor 09:00 Uhr erledigen">
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-add-weekly')">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="saveWeeklyTask()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- WOCHENAUFGABE EDIT OVERLAY -->
+<div class="overlay" id="ov-edit-weekly" onclick="if(event.target===this)closeOv('ov-edit-weekly')">
+  <div class="modal" style="max-height:90vh;overflow-y:auto;">
+    <h3>✏️ Wochenaufgabe bearbeiten</h3>
+    <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Aufgabe</label>
+    <input type="text" id="wt-edit-text" placeholder="Aufgabe">
+    <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Abschnitt</label>
+    <input type="text" id="wt-edit-section" placeholder="Wochenaufgabe">
+    <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Uhrzeit</label>
+    <input type="text" id="wt-edit-time" placeholder="z.B. 08:00">
+    <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Wochentage</label>
+    <div style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px;">
+      <label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wt-edit-mo" style="width:16px;height:16px;margin-bottom:0;"> Mo</label><label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wt-edit-di" style="width:16px;height:16px;margin-bottom:0;"> Di</label><label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wt-edit-mi" style="width:16px;height:16px;margin-bottom:0;"> Mi</label><label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wt-edit-do" style="width:16px;height:16px;margin-bottom:0;"> Do</label><label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wt-edit-fr" style="width:16px;height:16px;margin-bottom:0;"> Fr</label><label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wt-edit-sa" style="width:16px;height:16px;margin-bottom:0;"> Sa</label><label style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wt-edit-so" style="width:16px;height:16px;margin-bottom:0;"> So</label>
+    </div>
+    <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Schicht</label>
+    <select id="wt-edit-schicht" style="width:100%;border:1.5px solid #e0e0e0;border-radius:9px;padding:10px 12px;font-size:13px;font-family:inherit;margin-bottom:10px;outline:none;"><option value="early">🌅 Frühschicht</option><option value="mid">☀️ Mittelschicht</option><option value="late">🌙 Spätschicht</option><option value="all">Alle Schichten</option></select>
+    <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Bereich</label>
+    <select id="wt-edit-bereich" style="width:100%;border:1.5px solid #e0e0e0;border-radius:9px;padding:10px 12px;font-size:13px;font-family:inherit;margin-bottom:10px;outline:none;"><option value="laden">🛒 Laden</option><option value="bake">🥐 Bake-Off</option><option value="all">Alle Bereiche</option></select>
+    <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">⚠️ Warnung (optional)</label>
+    <input type="text" id="wt-edit-warn" placeholder="z.B. Vor 09:00 Uhr erledigen">
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-edit-weekly')">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="updateWeeklyTask()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- SL-TASK und TASK-EDIT OVERLAYS (fehlten) -->
+<!-- ov-edit-task -->
+<div class="overlay" id="ov-edit-task" onclick="if(event.target===this)closeOv('ov-edit-task')">
+  <div class="modal">
+    <h3>✏️ Aufgabe bearbeiten</h3>
+    <select id="et-schicht">
+      <option value="early_bake">Frühschicht – Bake-Off</option>
+      <option value="early_laden">Frühschicht – Laden</option>
+      <option value="mid_laden">Mittelschicht – Laden</option>
+      <option value="late_laden">Spätschicht – Laden</option>
+    </select>
+    <input type="text" id="et-time" placeholder="Uhrzeit (z.B. 07:00)">
+    <input type="text" id="et-section" placeholder="Abschnitt (z.B. Öffnung)">
+    <textarea id="et-text" placeholder="Aufgabenbeschreibung..." rows="2"></textarea>
+    <input type="text" id="et-warn" placeholder="⚠️ Warnung (optional)">
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:9px;cursor:pointer;">
+      <input type="checkbox" id="et-ub"> Übergabepunkt
+    </label>
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-edit-task')">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="updateTask()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- ov-add-sl-task -->
+<div class="overlay" id="ov-add-sl-task" onclick="if(event.target===this)closeOv('ov-add-sl-task')">
+  <div class="modal">
+    <h3>👔 Schichtleiter-Aufgabe</h3>
+    <input type="text" id="sl-at-time" placeholder="Uhrzeit (z.B. 08:00)">
+    <input type="text" id="sl-at-section" placeholder="Abschnitt (z.B. Kontrolle)">
+    <textarea id="sl-at-text" placeholder="Aufgabe beschreiben..." rows="2"></textarea>
+    <input type="text" id="sl-at-warn" placeholder="⚠️ Warnung (optional)">
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-add-sl-task')">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="saveSLTask()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- ov-edit-sl-task -->
+<div class="overlay" id="ov-edit-sl-task" onclick="if(event.target===this)closeOv('ov-edit-sl-task')">
+  <div class="modal">
+    <h3>✏️ Schichtleiter-Aufgabe bearbeiten</h3>
+    <input type="text" id="sl-et-time" placeholder="Uhrzeit">
+    <input type="text" id="sl-et-section" placeholder="Abschnitt">
+    <textarea id="sl-et-text" placeholder="Aufgabe..." rows="2"></textarea>
+    <input type="text" id="sl-et-warn" placeholder="⚠️ Warnung (optional)">
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-edit-sl-task')">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="updateSLTask()">Speichern</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
