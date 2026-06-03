@@ -215,41 +215,59 @@ function pwPinReset(){
   var d=document.getElementById('pw-pin-display'); if(d){ d.setAttribute('data-pin',''); d.textContent=''; }
   var e=document.getElementById('pw-err'); if(e) e.style.display='none';
 }
-function checkPw(){
-  var d=document.getElementById('pw-pin-display');
-  var pin = d ? (d.getAttribute('data-pin') || '') : '';
-
-  // Sicherheitskorrektur: Falls ein alter/doppelter Listener die PIN doppelt schreibt
-  // Beispiel: 11999922 wird wieder zu 1992.
-  if(pin.length % 2 === 0){
+function normalizePinForDoubleHandler(pin){
+  pin = String(pin || '');
+  if(pin.length > 0 && pin.length % 2 === 0){
     var compressed = '';
     var doubled = true;
     for(var i=0; i<pin.length; i+=2){
       if(pin[i] !== pin[i+1]) doubled = false;
       compressed += pin[i];
     }
-    if(doubled) pin = compressed;
+    if(doubled) return compressed;
   }
+  return pin;
+}
+function checkPw(){
+  var d=document.getElementById('pw-pin-display');
+  var pin = d ? (d.getAttribute('data-pin') || '') : '';
+  pin = normalizePinForDoubleHandler(pin);
 
   var ok = (pwTarget === 'sl') ? (pin === SL_PW) : (pin === ADMIN_PW);
-  if(!ok){ var e=document.getElementById('pw-err'); if(e) e.style.display='block'; return; }
-  closeOv('ov-pw'); pwPinReset();
-  if(pwTarget === 'sl') { go('s-sl'); try{ renderSL && renderSL(); }catch(e){} }
-  else { go('s-admin'); renderAdmin(); }
+  if(!ok){
+    var e=document.getElementById('pw-err');
+    if(e) e.style.display='block';
+    return;
+  }
+  closeOv('ov-pw');
+  pwPinReset();
+  if(pwTarget === 'sl'){
+    go('s-sl');
+    try{ if(typeof renderSL === 'function') renderSL(); }catch(e){}
+  } else {
+    go('s-admin');
+    try{ if(typeof renderAdmin === 'function') renderAdmin(); }catch(e){}
+  }
 }
 
-// PIN-Click-Listener nur einmal registrieren. Verhindert doppelte Punkte bei 1 Tastendruck.
-if(!window.__primaPwPinListenerInstalled){
-  window.__primaPwPinListenerInstalled = true;
+// PIN-Listener nur EINMAL registrieren. Verhindert doppelte Punkte bei Admin/SL-Passwort.
+if(!window.__primaPwPinListenerBound){
+  window.__primaPwPinListenerBound = true;
   document.addEventListener('click', function(e){
-    var b = e.target.closest('.pw-pin-btn'); if(!b) return;
+    var b = e.target.closest('.pw-pin-btn');
+    if(!b) return;
     e.preventDefault();
     e.stopPropagation();
-    var d=document.getElementById('pw-pin-display'); if(!d) return;
-    var k=b.getAttribute('data-k'); var cur=d.getAttribute('data-pin')||'';
-    if(k==='⌫') cur=cur.slice(0,-1); else if(cur.length<8) cur+=k;
-    d.setAttribute('data-pin', cur); d.textContent = cur ? '●'.repeat(cur.length) : '';
-  });
+    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    var d=document.getElementById('pw-pin-display');
+    if(!d) return;
+    var k=b.getAttribute('data-k');
+    var cur=d.getAttribute('data-pin')||'';
+    if(k==='⌫') cur=cur.slice(0,-1);
+    else if(cur.length<8) cur+=k;
+    d.setAttribute('data-pin', cur);
+    d.textContent = cur ? '●'.repeat(cur.length) : '';
+  }, true);
 }
 
 function saveName(){ var v=$val('an-inp').trim(); if(!v) return; if(names.indexOf(v)<0) names.push(v); lsSave('names',names); fbSave('names',names); closeOv('ov-add-name'); renderAdmin(); }
