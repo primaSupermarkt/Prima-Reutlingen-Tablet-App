@@ -1231,11 +1231,12 @@ let currentHRTab = 'zeiten';
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-renderInfo();
-updateSLBadge();
-updateBadges();
+try { if (typeof renderInfo === 'function') renderInfo(); } catch(e) { console.warn('renderInfo Fehler:', e); }
+try { if (typeof updateSLBadge === 'function') updateSLBadge(); } catch(e) { console.warn('updateSLBadge Fehler:', e); }
+try { if (typeof updateBadges === 'function') updateBadges(); } catch(e) { console.warn('updateBadges Fehler:', e); }
+
 // Immer auf Home starten
-initFirebase();
+try { if (typeof initFirebase === 'function') initFirebase(); } catch(e) { console.warn('initFirebase Fehler:', e); }
 
 
 // Kachel-Listener
