@@ -915,6 +915,93 @@ let editingWeeklyId = null;
 // SL TASKS
 // ═══════════════════════════════════════════
 let editingSLTaskId = null;
+let slCheckState = lsLoad('slCheckState', {});
+
+function renderSLPersAufgaben() {
+  var pane = document.getElementById('sl-pers-aufg-pane');
+  if(!pane) return;
+  pane.innerHTML = '';
+
+  // ── SL-Tasks (Schichtleiter-Checkliste) ──
+  var secHdr = document.createElement('div');
+  secHdr.style.cssText = 'font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;';
+  secHdr.textContent = '📋 Schichtleiter-Aufgaben';
+  pane.appendChild(secHdr);
+
+  if(!slTasks.length) {
+    var empty = document.createElement('div');
+    empty.style.cssText = 'background:#fff;border-radius:11px;padding:16px;text-align:center;color:#ccc;font-size:13px;';
+    empty.textContent = 'Noch keine SL-Aufgaben. Im Admin hinzufügen.';
+    pane.appendChild(empty);
+  } else {
+    slTasks.forEach(function(task) {
+      var cs = slCheckState[task.id] || {};
+      var done = cs.status === 'done';
+      var row = document.createElement('div');
+      row.style.cssText = 'background:#fff;border-radius:11px;padding:11px 13px;display:flex;align-items:center;gap:11px;box-shadow:0 1px 5px rgba(0,0,0,.06);margin-bottom:6px;' + (done ? 'opacity:0.5;' : '');
+      var cb = document.createElement('div');
+      cb.style.cssText = 'width:24px;height:24px;border-radius:50%;border:2.5px solid ' + (done ? '#16a34a' : '#ddd') + ';flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;background:' + (done ? '#16a34a' : '#fff') + ';color:#fff;';
+      if(done) cb.textContent = '✓';
+      var txt = document.createElement('div');
+      txt.style.flex = '1';
+      txt.innerHTML = '<div style="font-size:13px;font-weight:500;' + (done ? 'text-decoration:line-through;color:#aaa;' : '') + '">' + task.text + '</div>' +
+        '<div style="font-size:10px;color:#888;margin-top:2px;">🕐 ' + task.time + ' · ' + task.section + '</div>' +
+        (done && cs.ts ? '<div style="font-size:10px;color:#16a34a;font-weight:700;margin-top:2px;">✓ ' + cs.ts + '</div>' : '');
+      row.appendChild(cb);
+      row.appendChild(txt);
+      if(!done) {
+        var btn = document.createElement('button');
+        btn.style.cssText = 'background:#dcfce7;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:#15803d;cursor:pointer;font-family:inherit;flex-shrink:0;touch-action:manipulation;';
+        btn.textContent = '✅ Erledigt';
+        (function(id) {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var now = new Date();
+            var ts = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+            slCheckState[id] = {status:'done', ts:ts};
+            lsSave('slCheckState', slCheckState);
+            renderSLPersAufgaben();
+          });
+        })(task.id);
+        row.appendChild(btn);
+      }
+      pane.appendChild(row);
+    });
+  }
+
+  // ── Persönliche Aufgaben (vom SL zugewiesen) ──
+  var today = new Date().toISOString().slice(0,10);
+  var myPers = persAufgaben.filter(function(a){ return a.datum === today || !a.datum; });
+  if(myPers.length) {
+    var persHdr = document.createElement('div');
+    persHdr.style.cssText = 'font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin:12px 0 8px;';
+    persHdr.textContent = '📌 Persönliche Aufgaben heute';
+    pane.appendChild(persHdr);
+    myPers.forEach(function(a) {
+      var done = a.status === 'erledigt';
+      var card = document.createElement('div');
+      card.style.cssText = 'background:#fff;border-radius:11px;padding:11px 13px;margin-bottom:6px;box-shadow:0 1px 5px rgba(0,0,0,.06);' + (done ? 'opacity:0.5;' : '');
+      card.innerHTML = '<div style="font-size:13px;font-weight:600;' + (done ? 'text-decoration:line-through;color:#aaa;' : '') + '">' + a.text + '</div>' +
+        '<div style="font-size:11px;color:#888;margin-top:3px;">' + (a.priority==='hoch' ? '🔴 Hoch' : a.priority==='mittel' ? '🟡 Mittel' : '🟢 Normal') + (a.ma ? ' · für ' + a.ma : '') + '</div>';
+      if(!done) {
+        var doneBtn = document.createElement('button');
+        doneBtn.style.cssText = 'margin-top:8px;background:#dcfce7;border:none;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:700;color:#15803d;cursor:pointer;font-family:inherit;touch-action:manipulation;';
+        doneBtn.textContent = '✅ Erledigt';
+        (function(aufg) {
+          doneBtn.addEventListener('click', function() {
+            aufg.status = 'erledigt';
+            aufg.erledigt_ts = new Date().toLocaleString('de-DE');
+            lsSave('persAufgaben', persAufgaben);
+            fbSave('persAufgaben', persAufgaben);
+            renderSLPersAufgaben();
+          });
+        })(a);
+        card.appendChild(doneBtn);
+      }
+      pane.appendChild(card);
+    });
+  }
+}
 
 
 
