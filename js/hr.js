@@ -1,19 +1,10 @@
-// ═══════════════════════════════════════════════════════════════
-// HR.JS
-// HR-Konsole: Zeiten, Urlaub, Krank, Gehalt, Zuschläge, Profile
-// ═══════════════════════════════════════════════════════════════
+// HR.JS - Wiederhergestellt aus Original
 
-// ═══════════════════════════════════════════
-// ZUSCHLAG BERECHNUNG
-// ═══════════════════════════════════════════
 function getZuschlagsPlan(planId) {
   if(!planId) return zuschlagsPlaene.find(function(p){return p.istDefault;}) || zuschlagsPlaene[0];
   return zuschlagsPlaene.find(function(p){return p.id===planId;}) || zuschlagsPlaene[0];
 }
 
-// ═══════════════════════════════════════════
-// FEIERTAG-HELPER (Baden-Württemberg)
-// ═══════════════════════════════════════════
 function isFeiertag(datumStr) {
   if(!datumStr) return false;
   var d = new Date(datumStr + 'T12:00:00');
@@ -104,9 +95,6 @@ function calcIstStart(schicht, einloggZeit) {
   return minToTime(Math.max(sollStart, istMin));
 }
 
-// ═══════════════════════════════════════════
-// ZEITERFASSUNG
-// ═══════════════════════════════════════════
 function openZeiterfassung() {
   renderZeiterfassung();
   go('s-ze');
@@ -236,6 +224,22 @@ function hrTab(tab) {
   if(tab==='gehalt') { renderHRGehalt(); }
 }
 
+function hrTab(tab) {
+  currentHRTab = tab;
+  const tabMap = {zeiten:1, urlaub:2, krank:3, profile:4, zuschlag:5, gehalt:6};
+  Object.keys(tabMap).forEach(function(t) {
+    const btn = document.getElementById('hr-t'+tabMap[t]);
+    const pane = document.getElementById('hr-tab-'+t);
+    if(btn){btn.style.background=t===tab?'#fff':'rgba(255,255,255,.18)';btn.style.color=t===tab?'#1e3a5f':'#fff';}
+    if(pane) pane.style.display = t===tab ? (t==='zuschlag'?'flex':'block') : 'none';
+  });
+  if(tab==='zeiten')   renderHRZeiten();
+  if(tab==='urlaub')   renderHRUrlaub();
+  if(tab==='krank')    renderHRKrank();
+  if(tab==='profile')  renderHRProfile();
+  if(tab==='zuschlag') { renderHRZuschlag(); }
+  if(tab==='gehalt') { renderHRGehalt(); }
+}
 
 function renderHR() { hrTab(currentHRTab); }
 
@@ -342,6 +346,108 @@ function renderHRZeiten() {
   });
 }
 
+function renderHRZeiten() {
+  const pane = document.getElementById('hr-tab-zeiten');
+  if(!pane) return;
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0,10);
+  const thisMonth = now.toISOString().slice(0,7);
+  const thisWeek = getWeekStart(now);
+
+  let html = '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">Zeitkonto ' + now.toLocaleDateString('de-DE',{month:'long',year:'numeric'}) + '</div>';
+
+  names.forEach(function(name) {
+    const allEntries   = zeiterfassung.filter(function(z){return z.ma===name;});
+    const monthEntries = allEntries.filter(function(z){return z.datum.startsWith(thisMonth);});
+    const weekEntries  = allEntries.filter(function(z){return z.datum>=thisWeek;});
+    const todayEntries = allEntries.filter(function(z){return z.datum===todayStr;});
+
+    const monthMin = monthEntries.reduce(function(s,z){return s+(z.nettoMin||0);},0);
+    const weekMin  = weekEntries.reduce(function(s,z){return s+(z.nettoMin||0);},0);
+    const todayMin = todayEntries.reduce(function(s,z){return s+(z.nettoMin||0);},0);
+
+    const prof = maProfiles[name] || {};
+    const sollWocheMin = (prof.stundenSoll||0) * 60;
+
+    // ── Soll: nur ab erstem Zeiteintrag zählen ──
+    // Erster Eintrag dieses Mitarbeiters überhaupt
+    const firstEntry = allEntries.length ? allEntries.slice().sort(function(a,b){return a.datum<b.datum?-1:1;})[0] : null;
+    const startDatum = firstEntry ? firstEntry.datum : todayStr;
+
+    // Anzahl der Werktage (Mo-Sa) zwischen Start und heute im laufenden Monat
+    var countArbeitstage = function(fromStr, toStr) {
+      const from = new Date(fromStr < thisMonth+'-01' ? thisMonth+'-01' : fromStr);
+      const to   = new Date(toStr);
+      let days = 0;
+      const d = new Date(from);
+      while(d <= to) {
+        const dow = d.getDay();
+        if(dow !== 0) days++; // alle außer Sonntag (Sonntag=0)
+        d.setDate(d.getDate()+1);
+      }
+      return days;
+    }
+
+    // Soll pro Tag = Wochenstunden / 6 (Mo-Sa) oder / 5 (Mo-Fr)
+    // Wir nehmen 5 Tage/Woche als Basis (Standardarbeitsvertrag)
+    const sollTagMin = sollWocheMin / 5;
+    const arbeitstage = countArbeitstage(startDatum, todayStr);
+    const sollMonat = Math.round(sollTagMin * arbeitstage);
+
+    const diffMin = monthMin - sollMonat;
+
+    // Zuschlag berechnung
+    const nachtMin = monthEntries.reduce(function(s,z){return s+(z.zuschlaege?z.zuschlaege.nachtMin:0);},0);
+    const soFtMin  = monthEntries.reduce(function(s,z){return s+(z.zuschlaege?z.zuschlaege.soFtMin:0);},0);
+    const nachtSoFtMin = monthEntries.reduce(function(s,z){return s+(z.zuschlaege?z.zuschlaege.nachtSoFtMin:0);},0);
+
+    const stundenlohn = prof.bruttoGehalt&&prof.stundenSoll ? (prof.bruttoGehalt*12)/(prof.stundenSoll*52) : 0;
+    const zuEuro = calcZuschlagEuro(nachtMin, soFtMin, nachtSoFtMin, stundenlohn, prof.zuschlagsPlanId);
+    const totalZuschlag = zuEuro.total;
+
+    const diffColor = diffMin>=0?'#16a34a':'#ef4444';
+    const diffStr = (diffMin>=0?'+':'')+Math.floor(diffMin/60)+'h '+Math.abs(diffMin%60)+'min';
+
+    html += '<div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 7px rgba(0,0,0,.07);margin-bottom:10px;">'+
+      '<div style="font-size:14px;font-weight:800;margin-bottom:8px;">👤 '+name+'</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">'+
+        '<div style="background:#f5f5f5;border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:800;color:#1e3a5f;">'+Math.floor(todayMin/60)+'h'+todayMin%60+'m</div><div style="font-size:10px;color:#888;">Heute</div></div>'+
+        '<div style="background:#f5f5f5;border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:800;color:#1e3a5f;">'+Math.floor(weekMin/60)+'h'+weekMin%60+'m</div><div style="font-size:10px;color:#888;">Woche</div></div>'+
+        '<div style="background:#f5f5f5;border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:800;color:#1e3a5f;">'+Math.floor(monthMin/60)+'h'+monthMin%60+'m</div><div style="font-size:10px;color:#888;">Monat</div></div>'+
+      '</div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">'+
+        '<span>Soll ab '+startDatum+': <strong>'+(sollMonat?Math.floor(sollMonat/60)+'h'+(sollMonat%60?''+sollMonat%60+'m':''):'–')+'</strong> ('+arbeitstage+'&nbsp;AT)</span>'+
+        '<span style="color:'+diffColor+';font-weight:700;">'+(sollWocheMin?diffStr:'–')+'</span>'+
+      '</div>'+
+      (totalZuschlag>0?'<div style="background:#fffbeb;border-radius:8px;padding:8px;font-size:12px;margin-top:6px;">'+
+        '💰 Zuschläge: <strong>'+totalZuschlag.toFixed(2)+'€</strong> (steuerfrei)'+
+        '<div style="font-size:10px;color:#888;margin-top:2px;">Nacht: '+Math.round(nachtMin/60*10)/10+'h · So/Ft: '+Math.round(soFtMin/60*10)/10+'h · Nacht+So/Ft: '+Math.round(nachtSoFtMin/60*10)/10+'h</div>'+
+        '</div>':'')+
+      '<button onclick="showMaZeitDetail(this.dataset.name)" data-name='+name+'" style="width:100%;background:#f4f4f4;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;font-family:inherit;">📋 Details anzeigen</button>'+
+      '</div>';
+  });
+
+  pane.innerHTML = html;
+  // Attach live hints and plan options after render
+  names.forEach(function(n){
+    var urlEl=document.getElementById('prof-urlaub-'+n);
+    var eintEl=document.getElementById('prof-eintritt-'+n);
+    if(urlEl) urlEl.addEventListener('input',function(){ updateUrlaubHinweis(n); });
+    if(eintEl) { eintEl.addEventListener('input',function(){ updateUrlaubHinweis(n); }); updateUrlaubHinweis(n); }
+    // Plan-Options befüllen
+    var planSel = document.getElementById('prof-plan-'+n);
+    if(planSel && planSel.options.length === 0) {
+      var profN = maProfiles[n]||{};
+      zuschlagsPlaene.forEach(function(p){
+        var opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name + (p.istDefault?' (Standard)':'');
+        if(profN.zuschlagsPlanId===p.id || (!profN.zuschlagsPlanId && p.istDefault)) opt.selected = true;
+        planSel.appendChild(opt);
+      });
+    }
+  });
+}
 
 function getWeekStart(d) {
   const day = d.getDay();
@@ -502,14 +608,6 @@ function saveKrankmeldung() {
   renderHRKrank();
 }
 
-// Anteiligen Urlaubsanspruch berechnen
-// Logik: Im Eintrittsjahr: 1/12 pro vollem Monat (ab Eintrittsmonat).
-// Ab dem Folgejahr: voller Anspruch.
-// Sonderfälle: Eintritt in H2 → Anspruch erst ab dem Folgejahr vollständig.
-// ── Urlaubsanspruch anteilig berechnen ──
-// Regel: Eintritt am 1.  → voller Monat zählt
-//        Eintritt am 15. → halber Monat zählt (0.5/12)
-//        Ab Folgejahr    → voller Jahresanspruch
 function calcUrlaubsanspruchDiesesJahr(anspruchJahr, eintrittsDatum) {
   if(!eintrittsDatum || !anspruchJahr) return anspruchJahr||0;
   const eintritt = new Date(eintrittsDatum);
@@ -866,9 +964,6 @@ function saveMaProfile(name) {
   showSaveAnimation(null);
 }
 
-// ═══════════════════════════════════════════
-// MA PROFIL (Mitarbeiter-Ansicht)
-// ═══════════════════════════════════════════
 function openMaProfil() {
   // Show name + PIN selection
   const body = document.getElementById('maprofil-body');
