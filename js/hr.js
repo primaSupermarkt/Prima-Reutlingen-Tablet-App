@@ -316,7 +316,7 @@ function renderHRZeiten() {
         '💰 Zuschläge: <strong>'+totalZuschlag.toFixed(2)+'€</strong> (steuerfrei)'+
         '<div style="font-size:10px;color:#888;margin-top:2px;">Nacht: '+Math.round(nachtMin/60*10)/10+'h · So/Ft: '+Math.round(soFtMin/60*10)/10+'h · Nacht+So/Ft: '+Math.round(nachtSoFtMin/60*10)/10+'h</div>'+
         '</div>':'')+
-      '<button onclick="showMaZeitDetail(this.dataset.name)" data-name='+name+'" style="width:100%;background:#f4f4f4;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;font-family:inherit;">📋 Details anzeigen</button>'+
+      '<button onclick="showMaZeitDetail(this.dataset.name)" data-name="'+hrEscAttr(name)+'" style="width:100%;background:#f4f4f4;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;font-family:inherit;">📋 Details anzeigen</button>'+
       '</div>';
   });
 
@@ -351,22 +351,189 @@ function getWeekStart(d) {
 }
 
 function showMaZeitDetail(name) {
-  const now = new Date();
-  const thisMonth = now.toISOString().slice(0,7);
-  const entries = zeiterfassung.filter(z=>z.ma===name&&z.datum.startsWith(thisMonth));
+  // Bearbeitbare Zeitdetails statt alert(): wichtig für Schichtleiter → HR → Zeiten
+  openHRZeitOverlay(name);
+}
 
-  let msg = '📋 '+name+' – '+thisMonth+'\n\n';
-  if(!entries.length) { msg += 'Keine Einträge'; }
-  else {
-    entries.forEach(function(z) {
-      const d = new Date(z.datum);
-      const days=['So','Mo','Di','Mi','Do','Fr','Sa'];
-      msg += days[d.getDay()]+' '+d.getDate()+'. · '+z.istStart+'-'+z.istEnd+' · '+Math.floor(z.nettoMin/60)+'h'+z.nettoMin%60+'min';
-      if(z.grund) msg += ' ('+z.grund+')';
-      msg += '\n';
-    });
+function hrEscHtml(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+function hrEscAttr(v) { return hrEscHtml(v); }
+
+function hrMinToStr(min) {
+  min = Number(min) || 0;
+  var sign = min < 0 ? '-' : '';
+  min = Math.abs(min);
+  return sign + Math.floor(min/60) + 'h ' + String(min%60).padStart(2,'0') + 'm';
+}
+
+function hrCalcNettoMin(start, end, pause) {
+  if(!start || !end) return 0;
+  var sp = String(start).split(':'), ep = String(end).split(':');
+  if(sp.length < 2 || ep.length < 2) return 0;
+  var sm = Number(sp[0])*60 + Number(sp[1]);
+  var em = Number(ep[0])*60 + Number(ep[1]);
+  var brutto = em - sm;
+  if(brutto < 0) brutto += 24*60;
+  var p = Number(pause) || 0;
+  var netto = brutto - p;
+  return netto > 0 ? netto : 0;
+}
+
+function hrDefaultPause(start, end) {
+  if(!start || !end) return 0;
+  var sp = String(start).split(':'), ep = String(end).split(':');
+  if(sp.length < 2 || ep.length < 2) return 0;
+  var sm = Number(sp[0])*60 + Number(sp[1]);
+  var em = Number(ep[0])*60 + Number(ep[1]);
+  var brutto = em - sm;
+  if(brutto < 0) brutto += 24*60;
+  if(brutto > 540) return 45;
+  if(brutto > 360) return 30;
+  if(brutto > 270) return 15;
+  return 0;
+}
+
+function openHRZeitOverlay(name) {
+  var now = new Date();
+  var thisMonth = now.toISOString().slice(0,7);
+  var overlay = document.getElementById('hr-zeit-overlay');
+  if(!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'hr-zeit-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.70);z-index:700;display:flex;align-items:flex-start;justify-content:center;padding:18px 12px;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+    document.body.appendChild(overlay);
   }
-  alert(msg);
+
+  var entries = zeiterfassung
+    .filter(function(z){ return z.ma === name && String(z.datum||'').startsWith(thisMonth); })
+    .slice()
+    .sort(function(a,b){ return String(b.datum||'').localeCompare(String(a.datum||'')); });
+
+  var html = ''+
+    '<div style="background:#fff;border-radius:16px;width:100%;max-width:520px;max-height:none;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.25);">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px;">'+
+        '<div><div style="font-size:19px;font-weight:900;color:#111;">⏱️ Zeiten bearbeiten</div>'+ 
+        '<div style="font-size:12px;color:#777;margin-top:2px;">'+hrEscHtml(name)+' · '+thisMonth+'</div></div>'+ 
+        '<button type="button" onclick="closeHRZeitOverlay()" style="background:#f3f4f6;border:none;border-radius:10px;padding:8px 11px;font-size:18px;font-weight:800;cursor:pointer;">×</button>'+ 
+      '</div>'+ 
+      '<button type="button" onclick="addHRZeitEntry(\''+hrEscAttr(String(name).replace(/\\/g,'\\\\').replace(/'/g,"\\'"))+'\')" style="width:100%;background:#1e3a5f;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:12px;">+ Zeiteintrag manuell hinzufügen</button>'+ 
+      '<div id="hr-zeit-list">';
+
+  if(!entries.length) {
+    html += '<div style="background:#f9fafb;border:1px dashed #d1d5db;border-radius:12px;padding:16px;text-align:center;color:#777;font-size:13px;">Noch keine Einträge in diesem Monat.</div>';
+  } else {
+    entries.forEach(function(z){ html += renderHRZeitRow(z); });
+  }
+
+  html += '</div></div>';
+  overlay.innerHTML = html;
+}
+
+function renderHRZeitRow(z) {
+  var id = z.id || '';
+  var safeId = hrEscAttr(id);
+  var pause = (z.pause != null) ? z.pause : hrDefaultPause(z.istStart, z.istEnd);
+  var netto = (z.nettoMin != null) ? z.nettoMin : hrCalcNettoMin(z.istStart, z.istEnd, pause);
+  return ''+
+    '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-bottom:10px;">'+
+      '<input type="hidden" id="hz-id-'+safeId+'" value="'+safeId+'">'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'+
+        '<div><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Datum</label><input type="date" id="hz-datum-'+safeId+'" value="'+hrEscAttr(z.datum||'')+'" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;"></div>'+ 
+        '<div><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Pause Min.</label><input type="number" min="0" step="5" id="hz-pause-'+safeId+'" value="'+hrEscAttr(pause)+'" oninput="updateHRZeitNetto(\''+safeId+'\')" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;"></div>'+ 
+        '<div><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Start</label><input type="time" id="hz-start-'+safeId+'" value="'+hrEscAttr(z.istStart||'')+'" oninput="updateHRZeitNetto(\''+safeId+'\')" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;"></div>'+ 
+        '<div><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Ende</label><input type="time" id="hz-end-'+safeId+'" value="'+hrEscAttr(z.istEnd||'')+'" oninput="updateHRZeitNetto(\''+safeId+'\')" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;"></div>'+ 
+      '</div>'+ 
+      '<label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Grund / Bemerkung</label>'+ 
+      '<input type="text" id="hz-grund-'+safeId+'" value="'+hrEscAttr(z.grund||'')+'" placeholder="z.B. manuell korrigiert" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;margin-bottom:8px;">'+ 
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'+ 
+        '<div id="hz-netto-'+safeId+'" style="font-size:12px;color:#1e3a5f;font-weight:800;">Netto: '+hrMinToStr(netto)+'</div>'+ 
+        '<div style="display:flex;gap:6px;">'+ 
+          '<button type="button" onclick="saveHRZeitEntry(\''+safeId+'\')" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">Speichern</button>'+ 
+          '<button type="button" onclick="deleteHRZeitEntry(\''+safeId+'\')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">Löschen</button>'+ 
+        '</div>'+ 
+      '</div>'+ 
+    '</div>';
+}
+
+function closeHRZeitOverlay() {
+  var ov = document.getElementById('hr-zeit-overlay');
+  if(ov && ov.parentNode) ov.parentNode.removeChild(ov);
+}
+
+function updateHRZeitNetto(id) {
+  var start = document.getElementById('hz-start-'+id);
+  var end = document.getElementById('hz-end-'+id);
+  var pause = document.getElementById('hz-pause-'+id);
+  var out = document.getElementById('hz-netto-'+id);
+  if(out) out.textContent = 'Netto: ' + hrMinToStr(hrCalcNettoMin(start&&start.value, end&&end.value, pause&&pause.value));
+}
+
+function addHRZeitEntry(name) {
+  var today = new Date().toISOString().slice(0,10);
+  var id = 'ze-man-'+Date.now();
+  zeiterfassung.push({
+    id: id,
+    ma: name,
+    datum: today,
+    istStart: '08:00',
+    istEnd: '16:00',
+    pause: 30,
+    nettoMin: hrCalcNettoMin('08:00','16:00',30),
+    typ: 'manuell',
+    schicht: '',
+    grund: 'Manueller HR-Eintrag',
+    slBestaetigt: true
+  });
+  lsSave('zeiterfassung', zeiterfassung);
+  fbSave('zeiterfassung', zeiterfassung);
+  openHRZeitOverlay(name);
+  renderHRZeiten();
+}
+
+function saveHRZeitEntry(id) {
+  var idx = zeiterfassung.findIndex(function(z){ return String(z.id) === String(id); });
+  if(idx < 0) { alert('Eintrag nicht gefunden.'); return; }
+  var z = zeiterfassung[idx];
+  var datum = document.getElementById('hz-datum-'+id);
+  var start = document.getElementById('hz-start-'+id);
+  var end = document.getElementById('hz-end-'+id);
+  var pause = document.getElementById('hz-pause-'+id);
+  var grund = document.getElementById('hz-grund-'+id);
+  if(!datum || !datum.value) { alert('Bitte Datum eingeben.'); return; }
+  if(!start || !start.value) { alert('Bitte Startzeit eingeben.'); return; }
+  if(!end || !end.value) { alert('Bitte Endzeit eingeben.'); return; }
+  z.datum = datum.value;
+  z.istStart = start.value;
+  z.istEnd = end.value;
+  z.pause = Number(pause && pause.value ? pause.value : 0);
+  z.nettoMin = hrCalcNettoMin(z.istStart, z.istEnd, z.pause);
+  z.grund = grund ? grund.value : '';
+  z.typ = z.typ || 'manuell';
+  z.slBestaetigt = true;
+  lsSave('zeiterfassung', zeiterfassung);
+  fbSave('zeiterfassung', zeiterfassung);
+  renderHRZeiten();
+  updateHRZeitNetto(id);
+  alert('✅ Zeit gespeichert.');
+}
+
+function deleteHRZeitEntry(id) {
+  var idx = zeiterfassung.findIndex(function(z){ return String(z.id) === String(id); });
+  if(idx < 0) { alert('Eintrag nicht gefunden.'); return; }
+  if(!confirm('Diesen Zeiteintrag wirklich löschen?')) return;
+  var name = zeiterfassung[idx].ma;
+  zeiterfassung.splice(idx, 1);
+  lsSave('zeiterfassung', zeiterfassung);
+  fbSave('zeiterfassung', zeiterfassung);
+  renderHRZeiten();
+  openHRZeitOverlay(name);
 }
 
 function renderHRUrlaub() {
