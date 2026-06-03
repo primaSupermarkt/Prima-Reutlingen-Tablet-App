@@ -612,6 +612,113 @@
 </div>
 
 
+
+<!-- ══ OVERLAY: Wochenaufgabe hinzufügen ══ -->
+<div class="overlay" id="ov-add-weekly" onclick="if(event.target===this)closeOv('ov-add-weekly')">
+  <div class="modal">
+    <h3>➕ Wochenaufgabe hinzufügen</h3>
+    <input type="text" id="wt-text" placeholder="Aufgabenbeschreibung...">
+    <input type="text" id="wt-section" placeholder="Abschnitt" value="Wochenaufgabe">
+    <input type="text" id="wt-time" placeholder="Uhrzeit (z.B. 08:00)">
+    <input type="text" id="wt-warn" placeholder="⚠️ Warnung (optional)">
+    <select id="wt-schicht">
+      <option value="early">🌅 Frühschicht</option>
+      <option value="mid">☀️ Mittelschicht</option>
+      <option value="late">🌙 Spätschicht</option>
+      <option value="all">Alle Schichten</option>
+    </select>
+    <select id="wt-bereich">
+      <option value="laden">🛒 Laden</option>
+      <option value="bake">🥐 Bake-Off</option>
+      <option value="all">Alle Bereiche</option>
+    </select>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;margin-bottom:6px;color:#555;">Wochentage:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="wt-mo"> Mo</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="wt-di"> Di</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="wt-mi"> Mi</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="wt-do"> Do</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="wt-fr"> Fr</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="wt-sa"> Sa</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="wt-so"> So</label>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-add-weekly')">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="saveWeeklyTask()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ OVERLAY: Wochenaufgabe bearbeiten ══ -->
+<div class="overlay" id="ov-edit-weekly" onclick="if(event.target===this)closeOv('ov-edit-weekly')">
+  <div class="modal">
+    <h3>✏️ Wochenaufgabe bearbeiten</h3>
+    <input type="text" id="wt-edit-text" placeholder="Aufgabenbeschreibung...">
+    <input type="text" id="wt-edit-section" placeholder="Abschnitt">
+    <input type="text" id="wt-edit-time" placeholder="Uhrzeit (z.B. 08:00)">
+    <input type="text" id="wt-edit-warn" placeholder="⚠️ Warnung (optional)">
+    <select id="wt-edit-schicht">
+      <option value="early">🌅 Frühschicht</option>
+      <option value="mid">☀️ Mittelschicht</option>
+      <option value="late">🌙 Spätschicht</option>
+      <option value="all">Alle Schichten</option>
+    </select>
+    <select id="wt-edit-bereich">
+      <option value="laden">🛒 Laden</option>
+      <option value="bake">🥐 Bake-Off</option>
+      <option value="all">Alle Bereiche</option>
+    </select>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;margin-bottom:6px;color:#555;">Wochentage:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="wt-edit-mo"> Mo</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="wt-edit-di"> Di</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="wt-edit-mi"> Mi</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="wt-edit-do"> Do</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="wt-edit-fr"> Fr</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="wt-edit-sa"> Sa</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" id="wt-edit-so"> So</label>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-edit-weekly')">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="updateWeeklyTask()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ OVERLAY: SL-Task hinzufügen ══ -->
+<div class="overlay" id="ov-add-sl-task" onclick="if(event.target===this)closeOv('ov-add-sl-task')">
+  <div class="modal">
+    <h3>➕ Schichtleiter-Aufgabe hinzufügen</h3>
+    <input type="text" id="sl-at-time" placeholder="Uhrzeit (z.B. 08:00)">
+    <input type="text" id="sl-at-section" placeholder="Abschnitt (z.B. Allgemein)">
+    <textarea id="sl-at-text" placeholder="Aufgabenbeschreibung..." rows="2"></textarea>
+    <input type="text" id="sl-at-warn" placeholder="⚠️ Warnung (optional)">
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-add-sl-task')">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="saveSLTask()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ OVERLAY: SL-Task bearbeiten ══ -->
+<div class="overlay" id="ov-edit-sl-task" onclick="if(event.target===this)closeOv('ov-edit-sl-task')">
+  <div class="modal">
+    <h3>✏️ Schichtleiter-Aufgabe bearbeiten</h3>
+    <input type="text" id="sl-et-time" placeholder="Uhrzeit (z.B. 08:00)">
+    <input type="text" id="sl-et-section" placeholder="Abschnitt (z.B. Allgemein)">
+    <textarea id="sl-et-text" placeholder="Aufgabenbeschreibung..." rows="2"></textarea>
+    <input type="text" id="sl-et-warn" placeholder="⚠️ Warnung (optional)">
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-edit-sl-task')">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="updateSLTask()">Speichern</button>
+    </div>
+  </div>
+</div>
+
   <!-- Service Worker für Offline-Fähigkeit -->
 
 
@@ -647,7 +754,6 @@
   <script src="js/inventur.js"></script>
   <script src="js/urlaub.js"></script>
   <script src="js/hr.js"></script>
-  <script src="js/gleitzeitkonto.js"></script>
   <script src="js/firebase-sync.js"></script>
 
   <!-- Hauptanwendung (Kern-Navigation und globaler State) -->
