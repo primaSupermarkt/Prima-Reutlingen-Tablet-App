@@ -186,9 +186,9 @@ function renderAdmin(){
       const eb=document.createElement('button');
       eb.style.cssText='background:#e8f0fe;border:none;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;color:#1a56db;cursor:pointer;font-family:inherit;';
       eb.textContent='✏️';
-      (function(id){eb.onclick=function(e){e.stopPropagation();editWeeklyTask(id);};})(wt.id);
+      (function(id){eb.addEventListener('click',function(e){e.stopPropagation();editWeeklyTask(id);});})(wt.id);
       const db=document.createElement('button');db.className='a-del';db.textContent='Löschen';
-      (function(id){db.onclick=function(e){e.stopPropagation();delItem('weekly',id);};})(wt.id);
+      (function(id){db.addEventListener('click',function(e){e.stopPropagation();delItem('weekly',id);});})(wt.id);
       bw.appendChild(eb);bw.appendChild(db);row.appendChild(bw);
       wtCard.appendChild(row);
     });
@@ -277,19 +277,19 @@ function renderAdmin(){
     const tb=document.createElement('button');
     tb.style.cssText='background:'+(m.aktiv?'#fef3c7':'#dcfce7')+';border:none;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:'+(m.aktiv?'#92400e':'#15803d')+';';
     tb.textContent=m.aktiv?'Deaktivieren':'Aktivieren';
-    (function(idx2,m2){tb.onclick=function(){m2.aktiv=!m2.aktiv;lsSave('schwarzesBrett',schwarzesBrett);renderAdmin();};})(i,m);
+    (function(idx2,m2){tb.addEventListener('click',function(){m2.aktiv=!m2.aktiv;lsSave('schwarzesBrett',schwarzesBrett);renderAdmin();});})(i,m);
     const db=document.createElement('button');db.className='a-del';db.textContent='Löschen';
-    (function(idx2){db.onclick=function(){schwarzesBrett.splice(idx2,1);lsSave('schwarzesBrett',schwarzesBrett);renderAdmin();};})(i);
+    (function(idx2){db.addEventListener('click',function(){schwarzesBrett.splice(idx2,1);lsSave('schwarzesBrett',schwarzesBrett);renderAdmin();});})(i);
     bw.appendChild(tb);bw.appendChild(db);row.appendChild(bw);brettCard.appendChild(row);
   });
   body.appendChild(brettCard);
   const addBrettBtn=document.createElement('button');addBrettBtn.className='a-add';addBrettBtn.textContent='+ Aushang hinzufügen';
-  addBrettBtn.onclick=function(){
+  addBrettBtn.addEventListener('click',function(){
     const txt=prompt('Text für Schwarzes Brett:');
     if(!txt||!txt.trim())return;
     schwarzesBrett.push({id:'bb'+Date.now(),ts:new Date().toLocaleString('de-DE'),text:txt.trim(),aktiv:true,bestaetigt:[]});
     lsSave('schwarzesBrett',schwarzesBrett);renderAdmin();updateBadges();
-  };
+  });
   body.appendChild(addBrettBtn);
 
   // Defektmeldungen
@@ -305,7 +305,7 @@ function renderAdmin(){
       const rb=document.createElement('button');rb.style.cssText='background:#dcfce7;border:none;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:#15803d;';
       rb.textContent='✅ Erledigt';
       const idx2=defektMeldungen.indexOf(d);
-      (function(idx3){rb.onclick=function(){defektMeldungen[idx3].status='erledigt';lsSave('defektMeldungen',defektMeldungen);renderAdmin();updateBadges();};})(idx2);
+      (function(idx3){rb.addEventListener('click',function(){defektMeldungen[idx3].status='erledigt';lsSave('defektMeldungen',defektMeldungen);renderAdmin();updateBadges();});})(idx2);
       row.appendChild(rb);defCard.appendChild(row);
     });
     body.appendChild(defCard);
@@ -330,8 +330,8 @@ function renderAdmin(){
       const rb2=document.createElement('button');rb2.style.cssText='background:#fee2e2;border:none;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:#dc2626;';
       rb2.textContent='❌';
       (function(entry){
-        ab.onclick=function(){entry.status='genehmigt';lsSave('urlaubAntraege',urlaubAntraege);renderAdmin();};
-        rb2.onclick=function(){entry.status='abgelehnt';lsSave('urlaubAntraege',urlaubAntraege);renderAdmin();};
+        ab.addEventListener('click',function(){entry.status='genehmigt';lsSave('urlaubAntraege',urlaubAntraege);renderAdmin();});
+        rb2.addEventListener('click',function(){entry.status='abgelehnt';lsSave('urlaubAntraege',urlaubAntraege);renderAdmin();});
       })(a);
       bw.appendChild(ab);bw.appendChild(rb2);row.appendChild(bw);urlCard.appendChild(row);
     });
@@ -379,7 +379,7 @@ function renderAdmin(){
   mkSec('📊 Historie');
   const hb=document.createElement('button');hb.className='a-add';hb.style.background='#1a1a2e';
   hb.textContent='📊 Alle Einträge anzeigen ('+history.length+')';
-  hb.onclick=()=>{renderHist();go('s-hist');};body.appendChild(hb);
+  hb.addEventListener('click',function(){renderHist();go('s-hist');});body.appendChild(hb);
 
   const cb=document.createElement('button');cb.className='a-add';cb.style.cssText='background:#dc2626;margin-top:6px;';
   cb.textContent='🗑️ Historie löschen';
@@ -632,7 +632,7 @@ function renderInfo(){
       const links=infoLinks.filter(l=>l.bereich===cat.key&&l.sub===sub);
       const d=document.createElement('div');d.className='i-sub';
       d.innerHTML=sub+(links.length?'<span style="background:#dcfce7;color:var(--green);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:7px;">'+links.length+'</span>':'')+'<span style="font-size:13px;color:#ccc;">›</span>';
-      d.onclick=()=>openInfoDetail(cat.key,sub);bdy.appendChild(d);
+      d.addEventListener('click',function(){openInfoDetail(cat.key,sub);});bdy.appendChild(d);
     });
     card.appendChild(hdr);card.appendChild(bdy);list.appendChild(card);
   });
