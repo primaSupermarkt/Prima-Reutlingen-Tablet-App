@@ -8,6 +8,9 @@
 //   4. app.js           (diese Datei - Anwendungslogik)
 // ═══════════════════════════════════════════════════════════════
 
+var schwarzesBrett = lsLoad('schwarzesBrett', []);
+var defektMeldungen = lsLoad('defektMeldungen', []);
+
 // Hinweis: firebaseConfig, FB_KEYS und alle Firebase-Funktionen
 // sind in firebase.js definiert. ADMIN_PW, names, TEMP_DEVICES etc.
 // sind in data.js definiert.
@@ -392,13 +395,13 @@ let weeklyTasks = lsLoad('weeklyTasks', [
 ]);
 // weeklyCheckState: {taskId_dateKey → {status, who, ts}}
 let weeklyCheckState = lsLoad('weeklyCheckState', {});
-let slTasks = lsLoad('slTasks', [
+let slTasks = [
   {id:'sl1', time:'06:00', section:'Öffnung', text:'Tagesumsatz Vortag eintragen', warn:''},
   {id:'sl2', time:'08:00', section:'Kontrolle', text:'Checklisten-Status aller Schichten prüfen', warn:''},
   {id:'sl3', time:'12:00', section:'Mittag', text:'Schichtübergaben kontrollieren', warn:''},
   {id:'sl4', time:'17:00', section:'Abend', text:'Dienstplan nächste Woche prüfen', warn:''},
   {id:'sl5', time:'20:00', section:'Tagesabschluss', text:'Tagesumsatz & Kundenzahl eintragen', warn:''},
-]);
+];
 
 // ── tasks: leeres Array als Fallback (neues System nutzt rollenAufgaben) ──
 let tasks = [];
@@ -1149,7 +1152,7 @@ initFirebase();
 
 
 // Kachel-Listener
-(function(){var bt=function(id,fn){var el=document.getElementById(id);if(el)el.addEventListener('click',fn);}
+(function(){function bt(id,fn){var el=document.getElementById(id);if(el)el.addEventListener('click',fn);}
 bt('tile-early',function(){goBereich('early');});
 bt('tile-mid',function(){goBereich('mid');});
 bt('tile-late',function(){goBereich('late');});
