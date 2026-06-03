@@ -240,84 +240,107 @@ function hrTab(tab) {
 function renderHR() { hrTab(currentHRTab); }
 
 function renderHRZeiten() {
-  var pane = document.getElementById('hr-tab-zeiten');
+  const pane = document.getElementById('hr-tab-zeiten');
   if(!pane) return;
-  var now = new Date();
-  var todayStr  = now.toISOString().slice(0,10);
-  var thisMonth = now.toISOString().slice(0,7);
-  var thisWeek  = getWeekStart(now);
-  var html = '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:10px;">Zeitkonto &middot; '+now.toLocaleDateString('de-DE',{month:'long',year:'numeric'})+'</div>';
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0,10);
+  const thisMonth = now.toISOString().slice(0,7);
+  const thisWeek = getWeekStart(now);
+
+  let html = '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">Zeitkonto ' + now.toLocaleDateString('de-DE',{month:'long',year:'numeric'}) + '</div>';
 
   names.forEach(function(name) {
-    var allEntries   = zeiterfassung.filter(function(z){return z.ma===name;});
-    var monthEntries = allEntries.filter(function(z){return z.datum.startsWith(thisMonth);});
-    var weekEntries  = allEntries.filter(function(z){return z.datum>=thisWeek;});
-    var todayEntries = allEntries.filter(function(z){return z.datum===todayStr;});
-    var monthMin = monthEntries.reduce(function(s,z){return s+(z.nettoMin||0);},0);
-    var weekMin  = weekEntries.reduce(function(s,z){return s+(z.nettoMin||0);},0);
-    var todayMin = todayEntries.reduce(function(s,z){return s+(z.nettoMin||0);},0);
-    var prof = maProfiles[name]||{};
-    var sollWocheH   = prof.stundenSoll||0;
-    var sollMonatMin = Math.round(sollWocheH * 60 * 52 / 12);
+    const allEntries   = zeiterfassung.filter(function(z){return z.ma===name;});
+    const monthEntries = allEntries.filter(function(z){return z.datum.startsWith(thisMonth);});
+    const weekEntries  = allEntries.filter(function(z){return z.datum>=thisWeek;});
+    const todayEntries = allEntries.filter(function(z){return z.datum===todayStr;});
 
-    // Genehmigter Urlaub diesen Monat (8h/Tag, Mo-Sa)
-    var urlaubH = 0;
-    urlaubAntraege.forEach(function(a){
-      if(a.ma!==name||a.status!=='genehmigt'||!a.von||!a.bis) return;
-      var d=new Date(a.von+'T12:00:00'), end=new Date(a.bis+'T12:00:00');
-      while(d<=end){
-        if(d.toISOString().slice(0,7)===thisMonth&&d.getDay()!==0) urlaubH+=8;
+    const monthMin = monthEntries.reduce(function(s,z){return s+(z.nettoMin||0);},0);
+    const weekMin  = weekEntries.reduce(function(s,z){return s+(z.nettoMin||0);},0);
+    const todayMin = todayEntries.reduce(function(s,z){return s+(z.nettoMin||0);},0);
+
+    const prof = maProfiles[name] || {};
+    const sollWocheMin = (prof.stundenSoll||0) * 60;
+
+    // ── Soll: nur ab erstem Zeiteintrag zählen ──
+    // Erster Eintrag dieses Mitarbeiters überhaupt
+    const firstEntry = allEntries.length ? allEntries.slice().sort(function(a,b){return a.datum<b.datum?-1:1;})[0] : null;
+    const startDatum = firstEntry ? firstEntry.datum : todayStr;
+
+    // Anzahl der Werktage (Mo-Sa) zwischen Start und heute im laufenden Monat
+    var countArbeitstage = function(fromStr, toStr) {
+      const from = new Date(fromStr < thisMonth+'-01' ? thisMonth+'-01' : fromStr);
+      const to   = new Date(toStr);
+      let days = 0;
+      const d = new Date(from);
+      while(d <= to) {
+        const dow = d.getDay();
+        if(dow !== 0) days++; // alle außer Sonntag (Sonntag=0)
         d.setDate(d.getDate()+1);
       }
-    });
+      return days;
+    }
 
-    var saldoMin = monthMin + urlaubH*60 - sollMonatMin;
-    var saldoColor = saldoMin>=0?'#16a34a':'#ef4444';
-    var saldoBg    = saldoMin>=0?'#f0fdf4':'#fff5f5';
-    var saldoSign  = saldoMin>=0?'+':'-';
+    // Soll pro Tag = Wochenstunden / 6 (Mo-Sa) oder / 5 (Mo-Fr)
+    // Wir nehmen 5 Tage/Woche als Basis (Standardarbeitsvertrag)
+    const sollTagMin = sollWocheMin / 5;
+    const arbeitstage = countArbeitstage(startDatum, todayStr);
+    const sollMonat = Math.round(sollTagMin * arbeitstage);
 
-    html +=
-      '<div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 7px rgba(0,0,0,.07);margin-bottom:10px;">'+
-      '<div style="font-size:14px;font-weight:800;margin-bottom:10px;">&#128100; '+name+'</div>'+
-      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:8px;">'+
-        '<div style="background:#f0f4ff;border-radius:9px;padding:9px;text-align:center;">'+
-          '<div style="font-size:15px;font-weight:800;color:#1e3a5f;">'+Math.floor(monthMin/60)+'h '+monthMin%60+'m</div>'+
-          '<div style="font-size:10px;color:#888;">Ist-Std</div></div>'+
-        '<div style="background:#f5f5f5;border-radius:9px;padding:9px;text-align:center;">'+
-          '<div style="font-size:15px;font-weight:800;color:#444;">'+(sollMonatMin?Math.floor(sollMonatMin/60)+'h':'&ndash;')+'</div>'+
-          '<div style="font-size:10px;color:#888;">Soll-Std</div></div>'+
-        '<div style="background:'+saldoBg+';border-radius:9px;padding:9px;text-align:center;">'+
-          '<div style="font-size:15px;font-weight:800;color:'+saldoColor+';">'+saldoSign+_minStr(Math.abs(saldoMin))+'</div>'+
-          '<div style="font-size:10px;color:#888;">Saldo</div></div>'+
+    const diffMin = monthMin - sollMonat;
+
+    // Zuschlag berechnung
+    const nachtMin = monthEntries.reduce(function(s,z){return s+(z.zuschlaege?z.zuschlaege.nachtMin:0);},0);
+    const soFtMin  = monthEntries.reduce(function(s,z){return s+(z.zuschlaege?z.zuschlaege.soFtMin:0);},0);
+    const nachtSoFtMin = monthEntries.reduce(function(s,z){return s+(z.zuschlaege?z.zuschlaege.nachtSoFtMin:0);},0);
+
+    const stundenlohn = prof.bruttoGehalt&&prof.stundenSoll ? (prof.bruttoGehalt*12)/(prof.stundenSoll*52) : 0;
+    const zuEuro = calcZuschlagEuro(nachtMin, soFtMin, nachtSoFtMin, stundenlohn, prof.zuschlagsPlanId);
+    const totalZuschlag = zuEuro.total;
+
+    const diffColor = diffMin>=0?'#16a34a':'#ef4444';
+    const diffStr = (diffMin>=0?'+':'')+Math.floor(diffMin/60)+'h '+Math.abs(diffMin%60)+'min';
+
+    html += '<div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 7px rgba(0,0,0,.07);margin-bottom:10px;">'+
+      '<div style="font-size:14px;font-weight:800;margin-bottom:8px;">👤 '+name+'</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">'+
+        '<div style="background:#f5f5f5;border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:800;color:#1e3a5f;">'+Math.floor(todayMin/60)+'h'+todayMin%60+'m</div><div style="font-size:10px;color:#888;">Heute</div></div>'+
+        '<div style="background:#f5f5f5;border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:800;color:#1e3a5f;">'+Math.floor(weekMin/60)+'h'+weekMin%60+'m</div><div style="font-size:10px;color:#888;">Woche</div></div>'+
+        '<div style="background:#f5f5f5;border-radius:8px;padding:8px;text-align:center;"><div style="font-size:16px;font-weight:800;color:#1e3a5f;">'+Math.floor(monthMin/60)+'h'+monthMin%60+'m</div><div style="font-size:10px;color:#888;">Monat</div></div>'+
       '</div>'+
-      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:10px;">'+
-        '<div style="background:#f5f5f5;border-radius:8px;padding:8px;text-align:center;">'+
-          '<div style="font-size:14px;font-weight:700;color:#1e3a5f;">'+Math.floor(todayMin/60)+'h'+todayMin%60+'m</div>'+
-          '<div style="font-size:10px;color:#888;">Heute</div></div>'+
-        '<div style="background:#f5f5f5;border-radius:8px;padding:8px;text-align:center;">'+
-          '<div style="font-size:14px;font-weight:700;color:#1e3a5f;">'+Math.floor(weekMin/60)+'h'+weekMin%60+'m</div>'+
-          '<div style="font-size:10px;color:#888;">Woche</div></div>'+
-        '<div style="background:#f5f5f5;border-radius:8px;padding:8px;text-align:center;">'+
-          '<div style="font-size:14px;font-weight:700;color:#0f766e;">'+urlaubH+'h</div>'+
-          '<div style="font-size:10px;color:#888;">Urlaub</div></div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">'+
+        '<span>Soll ab '+startDatum+': <strong>'+(sollMonat?Math.floor(sollMonat/60)+'h'+(sollMonat%60?''+sollMonat%60+'m':''):'–')+'</strong> ('+arbeitstage+'&nbsp;AT)</span>'+
+        '<span style="color:'+diffColor+';font-weight:700;">'+(sollWocheMin?diffStr:'–')+'</span>'+
       '</div>'+
-      '<div id="gz-widget-'+name+'"></div>'+
-      '<button id="hrzd-btn-'+name+'" style="width:100%;background:#1e3a5f;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation;">Details anzeigen</button>'+
+      (totalZuschlag>0?'<div style="background:#fffbeb;border-radius:8px;padding:8px;font-size:12px;margin-top:6px;">'+
+        '💰 Zuschläge: <strong>'+totalZuschlag.toFixed(2)+'€</strong> (steuerfrei)'+
+        '<div style="font-size:10px;color:#888;margin-top:2px;">Nacht: '+Math.round(nachtMin/60*10)/10+'h · So/Ft: '+Math.round(soFtMin/60*10)/10+'h · Nacht+So/Ft: '+Math.round(nachtSoFtMin/60*10)/10+'h</div>'+
+        '</div>':'')+
+      '<button onclick="showMaZeitDetail(this.dataset.name)" data-name='+name+'" style="width:100%;background:#f4f4f4;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;font-family:inherit;">📋 Details anzeigen</button>'+
       '</div>';
   });
 
   pane.innerHTML = html;
+  // Attach live hints and plan options after render
   names.forEach(function(n){
-    var btn=document.getElementById('hrzd-btn-'+n);
-    if(btn)(function(nm){btn.addEventListener('click',function(){showMaZeitDetail(nm);});})(n);
-    // Gleitzeitkonto direkt in den Platzhalter rendern
-    var gzContainer = document.getElementById('gz-widget-'+n);
-    if(gzContainer && typeof renderGleitzeit === 'function') {
-      renderGleitzeit(n, gzContainer, false);
+    var urlEl=document.getElementById('prof-urlaub-'+n);
+    var eintEl=document.getElementById('prof-eintritt-'+n);
+    if(urlEl) urlEl.addEventListener('input',function(){ updateUrlaubHinweis(n); });
+    if(eintEl) { eintEl.addEventListener('input',function(){ updateUrlaubHinweis(n); }); updateUrlaubHinweis(n); }
+    // Plan-Options befüllen
+    var planSel = document.getElementById('prof-plan-'+n);
+    if(planSel && planSel.options.length === 0) {
+      var profN = maProfiles[n]||{};
+      zuschlagsPlaene.forEach(function(p){
+        var opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name + (p.istDefault?' (Standard)':'');
+        if(profN.zuschlagsPlanId===p.id || (!profN.zuschlagsPlanId && p.istDefault)) opt.selected = true;
+        planSel.appendChild(opt);
+      });
     }
   });
 }
-
 
 
 function getWeekStart(d) {
@@ -327,204 +350,24 @@ function getWeekStart(d) {
   return mon.toISOString().slice(0,10);
 }
 
-function _minStr(min) {
-  var h = Math.floor(Math.abs(min)/60);
-  var m = Math.abs(min)%60;
-  return h+'h '+(m<10?'0':'')+m+'min';
-}
-
-function _calcZuschlaegeEntry(datum, startStr, endStr) {
-  if(!datum||!startStr||!endStr) return {nachtMin:0,soFtMin:0,nachtSoFtMin:0,normalMin:0};
-  var sm=timeToMin(startStr), em=timeToMin(endStr);
-  if(em<=sm) em+=24*60;
-  var dow=new Date(datum+'T12:00:00').getDay();
-  var istSo=(dow===0), istFt=isFeiertag(datum);
-  var N_AB=22*60, N_BIS=6*60;
-  var nachtMin=0,soFtMin=0,nachtSoFtMin=0,normalMin=0;
-  for(var m2=sm;m2<em;m2++){
-    var t=m2%(24*60);
-    var isN=(t>=N_AB)||(t<N_BIS);
-    var isSF=istSo||istFt;
-    if(isN&&isSF) nachtSoFtMin++;
-    else if(isN)  nachtMin++;
-    else if(isSF) soFtMin++;
-    else          normalMin++;
-  }
-  return {nachtMin:nachtMin,soFtMin:soFtMin,nachtSoFtMin:nachtSoFtMin,normalMin:normalMin};
-}
-
 function showMaZeitDetail(name) {
-  var _editId = null;
+  const now = new Date();
+  const thisMonth = now.toISOString().slice(0,7);
+  const entries = zeiterfassung.filter(z=>z.ma===name&&z.datum.startsWith(thisMonth));
 
-  var ov = document.createElement('div');
-  ov.style.cssText = 'position:fixed;inset:0;background:#f5f5f5;z-index:800;display:flex;flex-direction:column;overflow:hidden;';
-
-  var hdr = document.createElement('div');
-  hdr.style.cssText = 'background:#1e3a5f;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;';
-  hdr.innerHTML = '<div style="font-size:15px;font-weight:800;">&#9201; '+name+' &ndash; Zeiten</div>';
-  var closeBtn = document.createElement('button');
-  closeBtn.style.cssText = 'background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;';
-  closeBtn.textContent = 'Schliessen';
-  closeBtn.addEventListener('click', function(){ document.body.removeChild(ov); });
-  hdr.appendChild(closeBtn);
-  ov.appendChild(hdr);
-
-  var scroll = document.createElement('div');
-  scroll.style.cssText = 'flex:1;overflow-y:auto;padding:12px;';
-  ov.appendChild(scroll);
-
-  var renderDetail = function() {
-    scroll.innerHTML = '';
-    var formCard = document.createElement('div');
-    formCard.style.cssText = 'background:#fff;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 2px 7px rgba(0,0,0,.07);';
-    var editEntry = _editId ? zeiterfassung.find(function(z){return z.id===_editId;}) : null;
-    var today = new Date().toISOString().slice(0,10);
-    var fTitle = _editId ? 'Eintrag bearbeiten' : '+ Eintrag hinzufügen';
-
-    formCard.innerHTML =
-      '<div style="font-size:13px;font-weight:800;margin-bottom:10px;color:#1e3a5f;">'+fTitle+'</div>'+
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'+
-        '<div style="grid-column:1/-1;"><label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Datum</label>'+
-        '<input type="date" id="hrd-datum" value="'+(editEntry?editEntry.datum:today)+'" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px;font-size:14px;font-family:inherit;outline:none;box-sizing:border-box;"></div>'+
-        '<div><label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Start</label>'+
-        '<input type="time" id="hrd-start" value="'+(editEntry?editEntry.istStart:'06:00')+'" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px;font-size:14px;font-family:inherit;outline:none;box-sizing:border-box;"></div>'+
-        '<div><label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Ende</label>'+
-        '<input type="time" id="hrd-end" value="'+(editEntry?editEntry.istEnd:'14:00')+'" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px;font-size:14px;font-family:inherit;outline:none;box-sizing:border-box;"></div>'+
-        '<div><label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Pause (Min)</label>'+
-        '<input type="number" id="hrd-pause" min="0" max="120" value="'+(editEntry?(editEntry.pauseMin||0):30)+'" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px;font-size:14px;font-family:inherit;outline:none;box-sizing:border-box;"></div>'+
-        '<div style="grid-column:1/-1;"><label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Bemerkung (optional)</label>'+
-        '<input type="text" id="hrd-bemerk" value="'+(editEntry&&editEntry.grund?editEntry.grund:'')+'" placeholder="z.B. Vertretung" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;"></div>'+
-      '</div>'+
-      '<div id="hrd-preview" style="background:#f0f4ff;border-radius:8px;padding:8px 10px;font-size:12px;color:#1e3a5f;margin-bottom:8px;display:none;"></div>';
-
-    var updatePreview = function() {
-      var s=document.getElementById('hrd-start').value;
-      var e=document.getElementById('hrd-end').value;
-      var p=parseInt(document.getElementById('hrd-pause').value)||0;
-      var prev=document.getElementById('hrd-preview');
-      if(!s||!e){prev.style.display='none';return;}
-      var sm2=timeToMin(s),em2=timeToMin(e);
-      if(em2<=sm2) em2+=24*60;
-      var brutto=em2-sm2, netto=Math.max(0,brutto-p);
-      prev.style.display='block';
-      prev.innerHTML='Brutto: <strong>'+_minStr(brutto)+'</strong> &nbsp;|&nbsp; Pause: <strong>'+p+'min</strong> &nbsp;|&nbsp; Netto: <strong>'+_minStr(netto)+'</strong>';
-    }
-    setTimeout(function(){
-      var sEl=document.getElementById('hrd-start');
-      var eEl=document.getElementById('hrd-end');
-      var pEl=document.getElementById('hrd-pause');
-      if(sEl) sEl.addEventListener('change',updatePreview);
-      if(eEl) eEl.addEventListener('change',updatePreview);
-      if(pEl) pEl.addEventListener('input',updatePreview);
-      updatePreview();
-    },0);
-
-    var saveBtn=document.createElement('button');
-    saveBtn.style.cssText='width:100%;background:#1e3a5f;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;touch-action:manipulation;';
-    saveBtn.textContent=_editId?'Aenderung speichern':'Eintrag speichern';
-    saveBtn.addEventListener('click',function(){
-      var datum=document.getElementById('hrd-datum').value;
-      var startV=document.getElementById('hrd-start').value;
-      var endV=document.getElementById('hrd-end').value;
-      var pauseV=parseInt(document.getElementById('hrd-pause').value)||0;
-      var bemerk=document.getElementById('hrd-bemerk').value.trim();
-      if(!datum||!startV||!endV){alert('Bitte Datum, Start und Ende eingeben.');return;}
-      var sm2=timeToMin(startV), em2=timeToMin(endV);
-      if(em2<=sm2) em2+=24*60;
-      var grossMin2=em2-sm2, nettoMin2=Math.max(0,grossMin2-pauseV);
-      var tagTyp2=new Date(datum+'T12:00:00').getDay()===0?'so':isFeiertag(datum)?'ft':'wt';
-      var zu2=_calcZuschlaegeEntry(datum,startV,endV);
-      if(_editId){
-        var idx=zeiterfassung.findIndex(function(z){return z.id===_editId;});
-        if(idx!==-1){
-          zeiterfassung[idx].datum=datum; zeiterfassung[idx].istStart=startV;
-          zeiterfassung[idx].istEnd=endV; zeiterfassung[idx].grossMin=grossMin2;
-          zeiterfassung[idx].pauseMin=pauseV; zeiterfassung[idx].nettoMin=nettoMin2;
-          zeiterfassung[idx].tagTyp=tagTyp2; zeiterfassung[idx].zuschlaege=zu2;
-          zeiterfassung[idx].grund=bemerk;
-        }
-        _editId=null;
-      } else {
-        zeiterfassung.push({id:'ze'+Date.now(),ma:name,datum:datum,schicht:'',
-          tagTyp:tagTyp2,istStart:startV,istEnd:endV,grossMin:grossMin2,
-          pauseMin:pauseV,nettoMin:nettoMin2,grund:bemerk,zuschlaege:zu2,
-          ts:new Date().toLocaleString('de-DE')});
-      }
-      lsSave('zeiterfassung',zeiterfassung);
-      fbSave('zeiterfassung',zeiterfassung);
-      renderDetail();
+  let msg = '📋 '+name+' – '+thisMonth+'\n\n';
+  if(!entries.length) { msg += 'Keine Einträge'; }
+  else {
+    entries.forEach(function(z) {
+      const d = new Date(z.datum);
+      const days=['So','Mo','Di','Mi','Do','Fr','Sa'];
+      msg += days[d.getDay()]+' '+d.getDate()+'. · '+z.istStart+'-'+z.istEnd+' · '+Math.floor(z.nettoMin/60)+'h'+z.nettoMin%60+'min';
+      if(z.grund) msg += ' ('+z.grund+')';
+      msg += '\n';
     });
-    formCard.appendChild(saveBtn);
-    if(_editId){
-      var cancelEdit=document.createElement('button');
-      cancelEdit.style.cssText='width:100%;background:none;border:none;color:#888;font-size:12px;cursor:pointer;font-family:inherit;padding:6px;touch-action:manipulation;';
-      cancelEdit.textContent='Abbrechen';
-      cancelEdit.addEventListener('click',function(){_editId=null;renderDetail();});
-      formCard.appendChild(cancelEdit);
-    }
-    scroll.appendChild(formCard);
-
-    var now2=new Date(), thisMonth2=now2.toISOString().slice(0,7);
-    var entries=zeiterfassung.filter(function(z){return z.ma===name&&z.datum.startsWith(thisMonth2);});
-    entries.sort(function(a,b){return b.datum>a.datum?1:b.datum<a.datum?-1:0;});
-
-    var histTitle=document.createElement('div');
-    histTitle.style.cssText='font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;';
-    histTitle.textContent='Historie '+thisMonth2+' ('+entries.length+' Eintraege)';
-    scroll.appendChild(histTitle);
-
-    if(!entries.length){
-      var empty=document.createElement('div');
-      empty.style.cssText='text-align:center;padding:24px;color:#ccc;font-size:13px;';
-      empty.textContent='Noch keine Eintraege diesen Monat';
-      scroll.appendChild(empty);
-    } else {
-      var DAYS=['So','Mo','Di','Mi','Do','Fr','Sa'];
-      entries.forEach(function(z){
-        var row=document.createElement('div');
-        row.style.cssText='background:#fff;border-radius:10px;padding:10px 12px;margin-bottom:7px;box-shadow:0 1px 4px rgba(0,0,0,.06);';
-        var d=new Date(z.datum+'T12:00:00');
-        var dlbl=DAYS[d.getDay()]+' '+d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.';
-        var netH=Math.floor((z.nettoMin||0)/60), netM=(z.nettoMin||0)%60;
-        var isSoFt=(new Date(z.datum+'T12:00:00').getDay()===0)||isFeiertag(z.datum);
-        var badge=isSoFt?'<span style="background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700;margin-left:4px;">'+(new Date(z.datum+'T12:00:00').getDay()===0?'So':'Ft')+'</span>':'';
-        row.innerHTML=
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'+
-            '<div style="font-size:13px;font-weight:700;">'+dlbl+badge+'</div>'+
-            '<div style="font-size:14px;font-weight:800;color:#1e3a5f;">'+netH+'h '+netM+'min</div>'+
-          '</div>'+
-          '<div style="font-size:12px;color:#666;margin-bottom:5px;">'+
-            (z.istStart||'?')+' - '+(z.istEnd||'?')+
-            ' | Pause: '+(z.pauseMin||0)+'min'+
-            (z.grund?' | '+z.grund:'')+
-          '</div>';
-        var btnRow=document.createElement('div');
-        btnRow.style.cssText='display:flex;gap:7px;';
-        var editBtn=document.createElement('button');
-        editBtn.style.cssText='flex:1;background:#f0f4ff;border:none;border-radius:7px;padding:7px;font-size:11px;font-weight:700;color:#1e3a5f;cursor:pointer;font-family:inherit;touch-action:manipulation;';
-        editBtn.textContent='Bearbeiten';
-        (function(id){editBtn.addEventListener('click',function(){_editId=id;renderDetail();scroll.scrollTop=0;});})(z.id);
-        var delBtn2=document.createElement('button');
-        delBtn2.style.cssText='flex:1;background:#fee2e2;border:none;border-radius:7px;padding:7px;font-size:11px;font-weight:700;color:#dc2626;cursor:pointer;font-family:inherit;touch-action:manipulation;';
-        delBtn2.textContent='Loeschen';
-        (function(id){delBtn2.addEventListener('click',function(){
-          if(!confirm('Eintrag loeschen?')) return;
-          zeiterfassung=zeiterfassung.filter(function(z2){return z2.id!==id;});
-          lsSave('zeiterfassung',zeiterfassung);
-          fbSave('zeiterfassung',zeiterfassung);
-          renderDetail();
-        });})(z.id);
-        btnRow.appendChild(editBtn);
-        btnRow.appendChild(delBtn2);
-        row.appendChild(btnRow);
-        scroll.appendChild(row);
-      });
-    }
   }
-  document.body.appendChild(ov);
-  renderDetail();
+  alert(msg);
 }
-
 
 function renderHRUrlaub() {
   const pane = document.getElementById('hr-tab-urlaub');
@@ -725,59 +568,33 @@ function renderHRGehalt() {
 
   var titel = document.createElement('div');
   titel.style.cssText = 'font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:12px;';
-  titel.textContent = 'Gehaltsübersicht · ' + now.toLocaleDateString('de-DE',{month:'long',year:'numeric'});
+  titel.textContent = '💰 Gehaltsübersicht · ' + now.toLocaleDateString('de-DE',{month:'long',year:'numeric'});
   pane.appendChild(titel);
 
   names.forEach(function(name){
     var prof = maProfiles[name]||{};
-    var brutto     = prof.bruttoGehalt||0;
-    var stundenSoll= prof.stundenSoll||0;
-    var stundenlohn= (brutto&&stundenSoll) ? (brutto*12)/(stundenSoll*52) : 0;
-    var planId     = prof.zuschlagsPlanId||null;
-    var sollMonatH = Math.round(stundenSoll * 52 / 12 * 10) / 10;
+    var brutto = prof.bruttoGehalt||0;
+    var stundenSoll = prof.stundenSoll||0;
+    var stundenlohn = (brutto&&stundenSoll) ? (brutto*12)/(stundenSoll*52) : 0;
+    var planId = prof.zuschlagsPlanId||null;
 
     var eintraege = zeiterfassung.filter(function(z){ return z.ma===name && z.datum.startsWith(thisMonth); });
-    var istMin    = eintraege.reduce(function(s,z){ return s+(z.nettoMin||0); }, 0);
-    var istH      = istMin / 60;
+    var nettoStd = eintraege.reduce(function(s,z){ return s+(z.nettoMin||0); },0)/60;
+    var istGehalt = stundenlohn ? stundenlohn*nettoStd : 0;
 
-    // Genehmigter Urlaub diesen Monat (8h/Tag)
-    var urlaubH = 0;
-    urlaubAntraege.forEach(function(a){
-      if(a.ma!==name||a.status!=='genehmigt'||!a.von||!a.bis) return;
-      var d=new Date(a.von+'T12:00:00'), end=new Date(a.bis+'T12:00:00');
-      while(d<=end){
-        if(d.toISOString().slice(0,7)===thisMonth&&d.getDay()!==0) urlaubH+=8;
-        d.setDate(d.getDate()+1);
-      }
-    });
-
-    // Stundenkonto: Ist + Urlaub - Soll
-    var saldoH    = istH + urlaubH - sollMonatH;
-    var saldoColor= saldoH>=0?'#16a34a':'#ef4444';
-    var saldoBg   = saldoH>=0?'#f0fdf4':'#fff5f5';
-    var saldoSign = saldoH>=0?'+':'-';
-    var absSaldo  = Math.abs(saldoH);
-    var saldoStr  = saldoSign+Math.floor(absSaldo)+'h '+Math.round((absSaldo%1)*60)+'min';
-
-    // Zuschläge §3b EStG – minutengenau
+    // Zuschläge getrennt nach §3b EStG
     var zNacht=0, zSonntag=0, zFeiertag=0, zNachtSo=0, zNachtFt=0;
-    var stNacht=0, stSo=0, stFt=0, stNachtSo=0, stNachtFt=0;
     eintraege.forEach(function(z){
       if(!z.istStart||!z.istEnd) return;
-      var res = _calcZuschlaegeEntry(z.datum, z.istStart, z.istEnd);
-      var ze  = calcZuschlagEuro(res.nachtMin, res.soFtMin, res.nachtSoFtMin, stundenlohn, planId);
+      var p1=z.istStart.split(':'), p2=z.istEnd.split(':');
+      var sh=parseInt(p1[0]),sm=parseInt(p1[1]),eh=parseInt(p2[0]),em=parseInt(p2[1]);
+      var brMin=(eh*60+em)-(sh*60+sm); if(brMin<0) brMin+=24*60;
       var tagTyp = new Date(z.datum+'T12:00:00').getDay()===0?'so':isFeiertag(z.datum)?'ft':'wt';
-      // Nacht immer separat
-      zNacht += ze.zNacht; stNacht += res.nachtMin;
-      if(tagTyp==='so'){
-        // So/Ft-Stunden ohne Nacht
-        zSonntag += ze.zSoFt; stSo += res.soFtMin;
-        // Nacht+So kombiniert
-        zNachtSo += ze.zNachtSoFt; stNachtSo += res.nachtSoFtMin;
-      } else if(tagTyp==='ft'){
-        zFeiertag += ze.zSoFt; stFt += res.soFtMin;
-        zNachtFt  += ze.zNachtSoFt; stNachtFt += res.nachtSoFtMin;
-      }
+      var res = calcZuschlaege(z.datum,sh*60+sm,sh*60+sm+brMin,tagTyp,planId);
+      var ze  = calcZuschlagEuro(res.nachtMin,res.soFtMin,res.nachtSoFtMin,stundenlohn,planId);
+      zNacht += ze.zNacht;
+      if(tagTyp==='so'){ zSonntag+=ze.zSoFt; zNachtSo+=ze.zNachtSoFt; }
+      else if(tagTyp==='ft'){ zFeiertag+=ze.zSoFt; zNachtFt+=ze.zNachtSoFt; }
     });
     var zGesamt = zNacht+zSonntag+zFeiertag+zNachtSo+zNachtFt;
     var plan = getZuschlagsPlan(planId);
@@ -785,75 +602,60 @@ function renderHRGehalt() {
     var card = document.createElement('div');
     card.style.cssText = 'background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 7px rgba(0,0,0,.07);';
 
-    // Header
     card.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'+
         '<div style="font-size:15px;font-weight:800;">'+name+'</div>'+
-        '<div style="font-size:11px;background:#f0f4ff;color:#1e3a5f;border-radius:6px;padding:3px 8px;">'+(plan?plan.name:'Kein Plan')+'</div>'+
+        '<div style="font-size:11px;background:#f0f4ff;color:#1e3a5f;border-radius:6px;padding:3px 8px;">'+( plan?plan.name:'Kein Plan')+'</div>'+
       '</div>'+
-      // Gehalt & Stundenlohn
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'+
         '<div style="background:#f9f9f9;border-radius:8px;padding:8px;">'+
-          '<div style="font-size:10px;color:#888;">Bruttogehalt/Monat</div>'+
-          '<div style="font-size:15px;font-weight:800;color:#1a1a1a;">'+(brutto?brutto.toFixed(2)+' &euro;':'&ndash;')+'</div></div>'+
+          '<div style="font-size:10px;color:#888;">Brutto/Monat</div>'+
+          '<div style="font-size:15px;font-weight:800;color:#1a1a1a;">'+(brutto?brutto.toFixed(2)+' €':'–')+'</div>'+
+        '</div>'+
         '<div style="background:#f9f9f9;border-radius:8px;padding:8px;">'+
-          '<div style="font-size:10px;color:#888;">Stundenlohn (Basis)</div>'+
-          '<div style="font-size:15px;font-weight:800;color:#1a1a1a;">'+(stundenlohn?stundenlohn.toFixed(2)+' &euro;/h':'&ndash;')+'</div></div>'+
-      '</div>'+
-      // Stundenkonto
-      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:7px;">Stundenkonto</div>'+
-      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:10px;">'+
-        '<div style="background:#f0f4ff;border-radius:8px;padding:8px;text-align:center;">'+
-          '<div style="font-size:13px;font-weight:800;color:#1e3a5f;">'+Math.floor(istH)+'h '+Math.round((istH%1)*60)+'m</div>'+
-          '<div style="font-size:9px;color:#888;">Ist-Std</div></div>'+
-        '<div style="background:#f5f5f5;border-radius:8px;padding:8px;text-align:center;">'+
-          '<div style="font-size:13px;font-weight:800;color:#444;">'+(sollMonatH?Math.floor(sollMonatH)+'h':'&ndash;')+'</div>'+
-          '<div style="font-size:9px;color:#888;">Soll-Std</div></div>'+
-        '<div style="background:#f5f5f5;border-radius:8px;padding:8px;text-align:center;">'+
-          '<div style="font-size:13px;font-weight:800;color:#0f766e;">'+urlaubH+'h</div>'+
-          '<div style="font-size:9px;color:#888;">Urlaub</div></div>'+
-        '<div style="background:'+saldoBg+';border-radius:8px;padding:8px;text-align:center;">'+
-          '<div style="font-size:13px;font-weight:800;color:'+saldoColor+';">'+saldoStr+'</div>'+
-          '<div style="font-size:9px;color:#888;">Saldo</div></div>'+
+          '<div style="font-size:10px;color:#888;">Stundenlohn</div>'+
+          '<div style="font-size:15px;font-weight:800;color:#1a1a1a;">'+(stundenlohn?stundenlohn.toFixed(2)+' €/h':'–')+'</div>'+
+        '</div>'+
+        '<div style="background:#f9f9f9;border-radius:8px;padding:8px;">'+
+          '<div style="font-size:10px;color:#888;">Ist-Stunden</div>'+
+          '<div style="font-size:15px;font-weight:800;color:#1e3a5f;">'+nettoStd.toFixed(1)+'h</div>'+
+        '</div>'+
+        '<div style="background:#f9f9f9;border-radius:8px;padding:8px;">'+
+          '<div style="font-size:10px;color:#888;">Ist-Gehalt ca.</div>'+
+          '<div style="font-size:15px;font-weight:800;color:#1e3a5f;">'+(istGehalt?istGehalt.toFixed(2)+' €':'–')+'</div>'+
+        '</div>'+
       '</div>';
 
-    // Zuschläge
+    // Zuschläge (immer anzeigen für Steuerberater)
     var zDiv = document.createElement('div');
-    zDiv.style.cssText = 'border-top:1.5px solid #f0f0f0;padding-top:10px;';
+    zDiv.style.cssText = 'border-top:1.5px solid #f0f0f0;padding-top:10px;margin-top:2px;';
 
-    var zRow = function(ico, label, para, stunden, pct, euro, bg, col) {
-      return '<div style="background:'+bg+';border-radius:8px;padding:8px 10px;margin-bottom:5px;">'+
-        '<div style="display:flex;justify-content:space-between;align-items:center;">'+
-          '<div><div style="font-size:12px;font-weight:700;color:'+col+';">'+ico+' '+label+'</div>'+
-          '<div style="font-size:10px;color:#999;">'+para+'</div></div>'+
-          '<div style="text-align:right;"><div style="font-size:14px;font-weight:900;color:'+col+';">'+euro+' &euro;</div>'+
-          '<div style="font-size:10px;color:#999;">'+stunden+' h &times; '+pct+'%</div></div>'+
-        '</div></div>';
+    var zRow = function(ico, label, para, val, bg, col) {
+      return '<div style="background:'+bg+';border-radius:8px;padding:8px 10px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;">'+
+        '<div><div style="font-size:12px;font-weight:700;color:'+col+';">'+ico+' '+label+'</div>'+
+        '<div style="font-size:10px;color:#999;">'+para+'</div></div>'+
+        '<div style="font-size:14px;font-weight:900;color:'+col+';">'+val+'</div></div>';
     }
 
-    var pNacht  = plan ? (plan.nacht||0)    : 25;
-    var pSo     = plan ? (plan.sonntag||0)  : 25;
-    var pFt     = plan ? (plan.feiertag||0) : 25;
-    var pNSF    = plan ? (plan.nachtSoFt||0): 50;
-
     zDiv.innerHTML =
-      '<div style="font-size:11px;font-weight:700;color:#1e3a5f;margin-bottom:8px;">Steuerfreie Zuschläge (&sect;3b EStG)</div>'+
-      zRow('Nacht','Nachtarbeit 22-06 Uhr','§3b Nr.1',Math.round(stNacht/60*100)/100,pNacht,zNacht.toFixed(2),'#fef3c7','#92400e')+
-      zRow('So','Sonntagsarbeit','§3b Nr.2',Math.round(stSo/60*100)/100,pSo,zSonntag.toFixed(2),'#dcfce7','#15803d')+
-      zRow('Ft','Feiertagsarbeit','§3b Nr.3',Math.round(stFt/60*100)/100,pFt,zFeiertag.toFixed(2),'#ede9fe','#6d28d9')+
-      (stNachtSo>0 ? zRow('N+So','Nacht+Sonntag kombiniert','§3b kombiniert',Math.round(stNachtSo/60*100)/100,pNSF,zNachtSo.toFixed(2),'#fff7ed','#c2410c') : '')+
-      (stNachtFt>0 ? zRow('N+Ft','Nacht+Feiertag kombiniert','§3b kombiniert',Math.round(stNachtFt/60*100)/100,pNSF,zNachtFt.toFixed(2),'#f0f4ff','#1e3a5f') : '')+
+      '<div style="font-size:11px;font-weight:700;color:#1e3a5f;margin-bottom:8px;">💰 Steuerfreie Zuschläge (§3b EStG)</div>'+
+      zRow('🌙','Nachtarbeit','§3b Nr.1 · 22–06 Uhr', zNacht.toFixed(2)+' €','#fef3c7','#92400e')+
+      zRow('☀️','Sonntagsarbeit','§3b Nr.2', zSonntag.toFixed(2)+' €','#dcfce7','#15803d')+
+      zRow('🎉','Feiertagsarbeit','§3b Nr.3', zFeiertag.toFixed(2)+' €','#ede9fe','#6d28d9')+
+      (zNachtSo>0 ? zRow('🌙☀️','Nacht+Sonntag','§3b kombiniert', zNachtSo.toFixed(2)+' €','#fff7ed','#c2410c') : '')+
+      (zNachtFt>0 ? zRow('🌙🎉','Nacht+Feiertag','§3b kombiniert', zNachtFt.toFixed(2)+' €','#f0f4ff','#1e3a5f') : '')+
       '<div style="background:#1e3a5f;border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'+
-        '<div><div style="font-size:13px;font-weight:800;color:#fff;">Gesamt Zuschläge</div>'+
-        '<div style="font-size:10px;color:rgba(255,255,255,.6);">Zusätzlich zum Bruttogehalt · steuerfrei</div></div>'+
-        '<div style="font-size:17px;font-weight:900;color:#fff;">'+zGesamt.toFixed(2)+' &euro;</div>'+
+        '<div>'+
+          '<div style="font-size:13px;font-weight:800;color:#fff;">Gesamt Zuschläge</div>'+
+          '<div style="font-size:10px;color:rgba(255,255,255,.6);">Zusätzlich zum Bruttogehalt</div>'+
+        '</div>'+
+        '<div style="font-size:17px;font-weight:900;color:#fff;">'+zGesamt.toFixed(2)+' €</div>'+
       '</div>';
 
     card.appendChild(zDiv);
     pane.appendChild(card);
   });
 }
-
 
 function renderHRZuschlag() {
   const pane = document.getElementById('hr-zuschlag-pane');
@@ -1156,7 +958,5 @@ function renderMaProfilDetails(name, body) {
   };
   card.appendChild(urlBtn);
   body.appendChild(card);
-  // Gleitzeitkonto einblenden (gleitzeitkonto.js)
-  if(typeof attachGleitzeitToMaProfil === 'function') attachGleitzeitToMaProfil(name);
 }
 
