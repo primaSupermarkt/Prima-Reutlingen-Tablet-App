@@ -4,7 +4,7 @@
 // Cached alle wichtigen Dateien beim ersten Laden.
 // ═══════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'prima-app-v2';
+const CACHE_NAME = 'prima-app-v999';
 
 // Diese Dateien werden offline gespeichert
 const FILES_TO_CACHE = [
