@@ -1,10 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
 // APP.JS
 // Hauptanwendungslogik der Prima Mitarbeiter-App.
-
-var schwarzesBrett = lsLoad('schwarzesBrett', []);
-var defektMeldungen = lsLoad('defektMeldungen', []);
-
 // Wird NACH folgenden Dateien geladen:
 //   1. store-config.js  (Laden-Konfiguration)
 //   2. firebase.js      (Firebase + localStorage Funktionen)
@@ -396,13 +392,13 @@ let weeklyTasks = lsLoad('weeklyTasks', [
 ]);
 // weeklyCheckState: {taskId_dateKey → {status, who, ts}}
 let weeklyCheckState = lsLoad('weeklyCheckState', {});
-let slTasks = [
+let slTasks = lsLoad('slTasks', [
   {id:'sl1', time:'06:00', section:'Öffnung', text:'Tagesumsatz Vortag eintragen', warn:''},
   {id:'sl2', time:'08:00', section:'Kontrolle', text:'Checklisten-Status aller Schichten prüfen', warn:''},
   {id:'sl3', time:'12:00', section:'Mittag', text:'Schichtübergaben kontrollieren', warn:''},
   {id:'sl4', time:'17:00', section:'Abend', text:'Dienstplan nächste Woche prüfen', warn:''},
   {id:'sl5', time:'20:00', section:'Tagesabschluss', text:'Tagesumsatz & Kundenzahl eintragen', warn:''},
-];
+]);
 
 // ── tasks: leeres Array als Fallback (neues System nutzt rollenAufgaben) ──
 let tasks = [];
@@ -1153,7 +1149,7 @@ initFirebase();
 
 
 // Kachel-Listener
-(function(){function bt(id,fn){var el=document.getElementById(id);if(el)el.addEventListener('click',fn);}
+(function(){var bt=function(id,fn){var el=document.getElementById(id);if(el)el.addEventListener('click',fn);}
 bt('tile-early',function(){goBereich('early');});
 bt('tile-mid',function(){goBereich('mid');});
 bt('tile-late',function(){goBereich('late');});
