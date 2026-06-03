@@ -414,101 +414,157 @@ function openHRZeitOverlay(name) {
   var entries = zeiterfassung
     .filter(function(z){ return z.ma === name && String(z.datum||'').startsWith(thisMonth); })
     .slice()
-    .sort(function(a,b){ return String(b.datum||'').localeCompare(String(a.datum||'')); });
+    .sort(function(a,b){
+      var ad = String(a.datum||''), bd = String(b.datum||'');
+      if(ad !== bd) return bd.localeCompare(ad); // neuestes Datum oben
+      return String(a.istStart||'').localeCompare(String(b.istStart||''));
+    });
+
+  var safeNameJs = hrEscAttr(String(name).replace(/\/g,'\\').replace(/'/g,"\\'"));
+  var today = new Date().toISOString().slice(0,10);
 
   var html = ''+
     '<div style="background:#fff;border-radius:16px;width:100%;max-width:520px;max-height:none;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.25);">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px;">'+
-        '<div><div style="font-size:19px;font-weight:900;color:#111;">⏱️ Zeiten bearbeiten</div>'+ 
+        '<div><div style="font-size:19px;font-weight:900;color:#111;">⏱️ Arbeitszeiten</div>'+ 
         '<div style="font-size:12px;color:#777;margin-top:2px;">'+hrEscHtml(name)+' · '+thisMonth+'</div></div>'+ 
         '<button type="button" onclick="closeHRZeitOverlay()" style="background:#f3f4f6;border:none;border-radius:10px;padding:8px 11px;font-size:18px;font-weight:800;cursor:pointer;">×</button>'+ 
       '</div>'+ 
-      '<button type="button" onclick="addHRZeitEntry(\''+hrEscAttr(String(name).replace(/\\/g,'\\\\').replace(/'/g,"\\'"))+'\')" style="width:100%;background:#1e3a5f;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:12px;">+ Zeiteintrag manuell hinzufügen</button>'+ 
+
+      '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:14px;padding:12px;margin-bottom:12px;">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;">'+
+          '<div id="hz-form-title" style="font-size:14px;font-weight:900;color:#111;">+ Neuen Zeiteintrag erfassen</div>'+ 
+          '<button type="button" onclick="resetHRZeitForm(\''+safeNameJs+'\')" style="background:#eef2ff;color:#1e3a5f;border:none;border-radius:8px;padding:7px 9px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">Neu</button>'+ 
+        '</div>'+ 
+        '<input type="hidden" id="hz-form-id" value="">'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'+
+          '<div><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Datum</label><input type="date" id="hz-form-datum" value="'+today+'" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;"></div>'+ 
+          '<div><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Pause Min.</label><input type="number" min="0" step="5" id="hz-form-pause" value="30" oninput="updateHRZeitFormNetto()" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;"></div>'+ 
+          '<div><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Start</label><input type="time" id="hz-form-start" value="08:00" oninput="updateHRZeitFormNetto()" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;"></div>'+ 
+          '<div><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Ende</label><input type="time" id="hz-form-end" value="16:00" oninput="updateHRZeitFormNetto()" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;"></div>'+ 
+        '</div>'+ 
+        '<label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Grund / Bemerkung</label>'+ 
+        '<input type="text" id="hz-form-grund" value="Manueller HR-Eintrag" placeholder="z.B. manuell korrigiert" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;margin-bottom:8px;">'+ 
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'+
+          '<div id="hz-form-netto" style="font-size:12px;color:#1e3a5f;font-weight:900;">Netto: '+hrMinToStr(hrCalcNettoMin('08:00','16:00',30))+'</div>'+ 
+          '<button type="button" onclick="saveHRZeitForm(\''+safeNameJs+'\')" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:9px 12px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;">Speichern</button>'+ 
+        '</div>'+ 
+      '</div>'+ 
+
+      '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#999;margin:4px 0 8px;">Arbeitshistorie nach Datum</div>'+ 
       '<div id="hr-zeit-list">';
 
   if(!entries.length) {
     html += '<div style="background:#f9fafb;border:1px dashed #d1d5db;border-radius:12px;padding:16px;text-align:center;color:#777;font-size:13px;">Noch keine Einträge in diesem Monat.</div>';
   } else {
-    entries.forEach(function(z){ html += renderHRZeitRow(z); });
+    entries.forEach(function(z){ html += renderHRZeitHistoryRow(z); });
   }
 
   html += '</div></div>';
   overlay.innerHTML = html;
 }
 
-function renderHRZeitRow(z) {
-  var id = z.id || '';
+function renderHRZeitHistoryRow(z) {
+  var id = String(z.id || '');
   var safeId = hrEscAttr(id);
-  var pause = (z.pause != null) ? z.pause : hrDefaultPause(z.istStart, z.istEnd);
-  var netto = (z.nettoMin != null) ? z.nettoMin : hrCalcNettoMin(z.istStart, z.istEnd, pause);
+  var pause = (z.pause != null) ? Number(z.pause||0) : hrDefaultPause(z.istStart, z.istEnd);
+  var netto = (z.nettoMin != null) ? Number(z.nettoMin||0) : hrCalcNettoMin(z.istStart, z.istEnd, pause);
+  var dateLabel = z.datum ? new Date(String(z.datum)+'T12:00:00').toLocaleDateString('de-DE', {weekday:'short', day:'2-digit', month:'2-digit', year:'numeric'}) : 'Ohne Datum';
   return ''+
-    '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin-bottom:10px;">'+
-      '<input type="hidden" id="hz-id-'+safeId+'" value="'+safeId+'">'+
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'+
-        '<div><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Datum</label><input type="date" id="hz-datum-'+safeId+'" value="'+hrEscAttr(z.datum||'')+'" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;"></div>'+ 
-        '<div><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Pause Min.</label><input type="number" min="0" step="5" id="hz-pause-'+safeId+'" value="'+hrEscAttr(pause)+'" oninput="updateHRZeitNetto(\''+safeId+'\')" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;"></div>'+ 
-        '<div><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Start</label><input type="time" id="hz-start-'+safeId+'" value="'+hrEscAttr(z.istStart||'')+'" oninput="updateHRZeitNetto(\''+safeId+'\')" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;"></div>'+ 
-        '<div><label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Ende</label><input type="time" id="hz-end-'+safeId+'" value="'+hrEscAttr(z.istEnd||'')+'" oninput="updateHRZeitNetto(\''+safeId+'\')" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;"></div>'+ 
-      '</div>'+ 
-      '<label style="font-size:10px;font-weight:800;color:#666;display:block;margin-bottom:3px;">Grund / Bemerkung</label>'+ 
-      '<input type="text" id="hz-grund-'+safeId+'" value="'+hrEscAttr(z.grund||'')+'" placeholder="z.B. manuell korrigiert" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;margin-bottom:8px;">'+ 
-      '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'+ 
-        '<div id="hz-netto-'+safeId+'" style="font-size:12px;color:#1e3a5f;font-weight:800;">Netto: '+hrMinToStr(netto)+'</div>'+ 
-        '<div style="display:flex;gap:6px;">'+ 
-          '<button type="button" onclick="saveHRZeitEntry(\''+safeId+'\')" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">Speichern</button>'+ 
-          '<button type="button" onclick="deleteHRZeitEntry(\''+safeId+'\')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">Löschen</button>'+ 
+    '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:11px 12px;margin-bottom:8px;">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">'+
+        '<div style="min-width:0;flex:1;">'+
+          '<div style="font-size:13px;font-weight:900;color:#111;">'+hrEscHtml(dateLabel)+'</div>'+ 
+          '<div style="font-size:12px;color:#374151;margin-top:3px;">'+hrEscHtml(z.istStart||'--:--')+' – '+hrEscHtml(z.istEnd||'--:--')+' · Pause '+pause+' Min. · Netto '+hrMinToStr(netto)+'</div>'+ 
+          '<div style="font-size:11px;color:#888;margin-top:3px;white-space:normal;word-break:break-word;">'+hrEscHtml(z.grund||'')+'</div>'+ 
+        '</div>'+ 
+        '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">'+
+          '<button type="button" onclick="loadHRZeitToForm(\''+safeId+'\')" style="background:#eef2ff;color:#1e3a5f;border:none;border-radius:8px;padding:7px 9px;font-size:11px;font-weight:900;cursor:pointer;font-family:inherit;">Bearbeiten</button>'+ 
+          '<button type="button" onclick="deleteHRZeitEntry(\''+safeId+'\')" style="background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:7px 9px;font-size:11px;font-weight:900;cursor:pointer;font-family:inherit;">Löschen</button>'+ 
         '</div>'+ 
       '</div>'+ 
     '</div>';
 }
+
+// alter Name bleibt als Kompatibilität erhalten; die Historie nutzt jetzt renderHRZeitHistoryRow()
+function renderHRZeitRow(z) { return renderHRZeitHistoryRow(z); }
 
 function closeHRZeitOverlay() {
   var ov = document.getElementById('hr-zeit-overlay');
   if(ov && ov.parentNode) ov.parentNode.removeChild(ov);
 }
 
-function updateHRZeitNetto(id) {
-  var start = document.getElementById('hz-start-'+id);
-  var end = document.getElementById('hz-end-'+id);
-  var pause = document.getElementById('hz-pause-'+id);
-  var out = document.getElementById('hz-netto-'+id);
+function updateHRZeitFormNetto() {
+  var start = document.getElementById('hz-form-start');
+  var end = document.getElementById('hz-form-end');
+  var pause = document.getElementById('hz-form-pause');
+  var out = document.getElementById('hz-form-netto');
   if(out) out.textContent = 'Netto: ' + hrMinToStr(hrCalcNettoMin(start&&start.value, end&&end.value, pause&&pause.value));
 }
 
-function addHRZeitEntry(name) {
+function updateHRZeitNetto(id) { updateHRZeitFormNetto(); }
+
+function resetHRZeitForm(name) {
   var today = new Date().toISOString().slice(0,10);
-  var id = 'ze-man-'+Date.now();
-  zeiterfassung.push({
-    id: id,
-    ma: name,
-    datum: today,
-    istStart: '08:00',
-    istEnd: '16:00',
-    pause: 30,
-    nettoMin: hrCalcNettoMin('08:00','16:00',30),
-    typ: 'manuell',
-    schicht: '',
-    grund: 'Manueller HR-Eintrag',
-    slBestaetigt: true
-  });
-  lsSave('zeiterfassung', zeiterfassung);
-  fbSave('zeiterfassung', zeiterfassung);
-  openHRZeitOverlay(name);
-  renderHRZeiten();
+  var idEl = document.getElementById('hz-form-id');
+  var title = document.getElementById('hz-form-title');
+  var datum = document.getElementById('hz-form-datum');
+  var start = document.getElementById('hz-form-start');
+  var end = document.getElementById('hz-form-end');
+  var pause = document.getElementById('hz-form-pause');
+  var grund = document.getElementById('hz-form-grund');
+  if(idEl) idEl.value = '';
+  if(title) title.textContent = '+ Neuen Zeiteintrag erfassen';
+  if(datum) datum.value = today;
+  if(start) start.value = '08:00';
+  if(end) end.value = '16:00';
+  if(pause) pause.value = '30';
+  if(grund) grund.value = 'Manueller HR-Eintrag';
+  updateHRZeitFormNetto();
 }
 
-function saveHRZeitEntry(id) {
-  var idx = zeiterfassung.findIndex(function(z){ return String(z.id) === String(id); });
-  if(idx < 0) { alert('Eintrag nicht gefunden.'); return; }
-  var z = zeiterfassung[idx];
-  var datum = document.getElementById('hz-datum-'+id);
-  var start = document.getElementById('hz-start-'+id);
-  var end = document.getElementById('hz-end-'+id);
-  var pause = document.getElementById('hz-pause-'+id);
-  var grund = document.getElementById('hz-grund-'+id);
+function loadHRZeitToForm(id) {
+  var z = zeiterfassung.find(function(x){ return String(x.id) === String(id); });
+  if(!z) { alert('Eintrag nicht gefunden.'); return; }
+  var idEl = document.getElementById('hz-form-id');
+  var title = document.getElementById('hz-form-title');
+  var datum = document.getElementById('hz-form-datum');
+  var start = document.getElementById('hz-form-start');
+  var end = document.getElementById('hz-form-end');
+  var pause = document.getElementById('hz-form-pause');
+  var grund = document.getElementById('hz-form-grund');
+  if(idEl) idEl.value = String(z.id||'');
+  if(title) title.textContent = 'Zeiteintrag bearbeiten';
+  if(datum) datum.value = z.datum || '';
+  if(start) start.value = z.istStart || '';
+  if(end) end.value = z.istEnd || '';
+  if(pause) pause.value = (z.pause != null ? z.pause : hrDefaultPause(z.istStart, z.istEnd));
+  if(grund) grund.value = z.grund || '';
+  updateHRZeitFormNetto();
+  var box = document.getElementById('hz-form-title');
+  if(box && box.scrollIntoView) box.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function addHRZeitEntry(name) { resetHRZeitForm(name); }
+
+function saveHRZeitForm(name) {
+  var idEl = document.getElementById('hz-form-id');
+  var datum = document.getElementById('hz-form-datum');
+  var start = document.getElementById('hz-form-start');
+  var end = document.getElementById('hz-form-end');
+  var pause = document.getElementById('hz-form-pause');
+  var grund = document.getElementById('hz-form-grund');
   if(!datum || !datum.value) { alert('Bitte Datum eingeben.'); return; }
   if(!start || !start.value) { alert('Bitte Startzeit eingeben.'); return; }
   if(!end || !end.value) { alert('Bitte Endzeit eingeben.'); return; }
+  var id = idEl ? String(idEl.value || '') : '';
+  var z = null;
+  if(id) z = zeiterfassung.find(function(x){ return String(x.id) === String(id); });
+  if(!z) {
+    z = { id:'ze-man-'+Date.now(), ma:name, typ:'manuell', schicht:'', slBestaetigt:true };
+    zeiterfassung.push(z);
+  }
+  z.ma = name;
   z.datum = datum.value;
   z.istStart = start.value;
   z.istEnd = end.value;
@@ -520,8 +576,12 @@ function saveHRZeitEntry(id) {
   lsSave('zeiterfassung', zeiterfassung);
   fbSave('zeiterfassung', zeiterfassung);
   renderHRZeiten();
-  updateHRZeitNetto(id);
-  alert('✅ Zeit gespeichert.');
+  openHRZeitOverlay(name);
+}
+
+function saveHRZeitEntry(id) {
+  // Kompatibilität für alte Buttons: lädt den Eintrag nur ins obere Formular.
+  loadHRZeitToForm(id);
 }
 
 function deleteHRZeitEntry(id) {
