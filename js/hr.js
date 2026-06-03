@@ -310,6 +310,8 @@ function renderHRZeiten() {
     var btn=document.getElementById('hrzd-btn-'+n);
     if(btn)(function(nm){btn.addEventListener('click',function(){showMaZeitDetail(nm);});})(n);
   });
+  // Gleitzeitkonto einblenden (gleitzeitkonto.js)
+  if(typeof attachGleitzeitToHRZeiten === 'function') attachGleitzeitToHRZeiten();
 }
 
 
@@ -367,7 +369,7 @@ function showMaZeitDetail(name) {
   scroll.style.cssText = 'flex:1;overflow-y:auto;padding:12px;';
   ov.appendChild(scroll);
 
-  function renderDetail() {
+  var renderDetail = function() {
     scroll.innerHTML = '';
     var formCard = document.createElement('div');
     formCard.style.cssText = 'background:#fff;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 2px 7px rgba(0,0,0,.07);';
@@ -391,7 +393,7 @@ function showMaZeitDetail(name) {
       '</div>'+
       '<div id="hrd-preview" style="background:#f0f4ff;border-radius:8px;padding:8px 10px;font-size:12px;color:#1e3a5f;margin-bottom:8px;display:none;"></div>';
 
-    function updatePreview() {
+    var updatePreview = function() {
       var s=document.getElementById('hrd-start').value;
       var e=document.getElementById('hrd-end').value;
       var p=parseInt(document.getElementById('hrd-pause').value)||0;
@@ -815,7 +817,7 @@ function renderHRGehalt() {
     var zDiv = document.createElement('div');
     zDiv.style.cssText = 'border-top:1.5px solid #f0f0f0;padding-top:10px;';
 
-    function zRow(ico, label, para, stunden, pct, euro, bg, col) {
+    var zRow = function(ico, label, para, stunden, pct, euro, bg, col) {
       return '<div style="background:'+bg+';border-radius:8px;padding:8px 10px;margin-bottom:5px;">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;">'+
           '<div><div style="font-size:12px;font-weight:700;color:'+col+';">'+ico+' '+label+'</div>'+
@@ -833,8 +835,8 @@ function renderHRGehalt() {
     zDiv.innerHTML =
       '<div style="font-size:11px;font-weight:700;color:#1e3a5f;margin-bottom:8px;">Steuerfreie Zuschläge (&sect;3b EStG)</div>'+
       zRow('Nacht','Nachtarbeit 22-06 Uhr','§3b Nr.1',Math.round(stNacht/60*100)/100,pNacht,zNacht.toFixed(2),'#fef3c7','#92400e')+
-      (stSo>0 ? zRow('So','Sonntagsarbeit','§3b Nr.2',Math.round(stSo/60*100)/100,pSo,zSonntag.toFixed(2),'#dcfce7','#15803d') : '')+
-      (stFt>0 ? zRow('Ft','Feiertagsarbeit','§3b Nr.3',Math.round(stFt/60*100)/100,pFt,zFeiertag.toFixed(2),'#ede9fe','#6d28d9') : '')+
+      zRow('So','Sonntagsarbeit','§3b Nr.2',Math.round(stSo/60*100)/100,pSo,zSonntag.toFixed(2),'#dcfce7','#15803d')+
+      zRow('Ft','Feiertagsarbeit','§3b Nr.3',Math.round(stFt/60*100)/100,pFt,zFeiertag.toFixed(2),'#ede9fe','#6d28d9')+
       (stNachtSo>0 ? zRow('N+So','Nacht+Sonntag kombiniert','§3b kombiniert',Math.round(stNachtSo/60*100)/100,pNSF,zNachtSo.toFixed(2),'#fff7ed','#c2410c') : '')+
       (stNachtFt>0 ? zRow('N+Ft','Nacht+Feiertag kombiniert','§3b kombiniert',Math.round(stNachtFt/60*100)/100,pNSF,zNachtFt.toFixed(2),'#f0f4ff','#1e3a5f') : '')+
       '<div style="background:#1e3a5f;border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'+
@@ -1150,5 +1152,7 @@ function renderMaProfilDetails(name, body) {
   };
   card.appendChild(urlBtn);
   body.appendChild(card);
+  // Gleitzeitkonto einblenden (gleitzeitkonto.js)
+  if(typeof attachGleitzeitToMaProfil === 'function') attachGleitzeitToMaProfil(name);
 }
 
