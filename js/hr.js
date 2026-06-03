@@ -301,6 +301,7 @@ function renderHRZeiten() {
           '<div style="font-size:14px;font-weight:700;color:#0f766e;">'+urlaubH+'h</div>'+
           '<div style="font-size:10px;color:#888;">Urlaub</div></div>'+
       '</div>'+
+      '<div id="gz-widget-'+name+'"></div>'+
       '<button id="hrzd-btn-'+name+'" style="width:100%;background:#1e3a5f;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation;">Details anzeigen</button>'+
       '</div>';
   });
@@ -309,9 +310,12 @@ function renderHRZeiten() {
   names.forEach(function(n){
     var btn=document.getElementById('hrzd-btn-'+n);
     if(btn)(function(nm){btn.addEventListener('click',function(){showMaZeitDetail(nm);});})(n);
+    // Gleitzeitkonto direkt in den Platzhalter rendern
+    var gzContainer = document.getElementById('gz-widget-'+n);
+    if(gzContainer && typeof renderGleitzeit === 'function') {
+      renderGleitzeit(n, gzContainer, false);
+    }
   });
-  // Gleitzeitkonto einblenden (gleitzeitkonto.js)
-  if(typeof attachGleitzeitToHRZeiten === 'function') attachGleitzeitToHRZeiten();
 }
 
 
