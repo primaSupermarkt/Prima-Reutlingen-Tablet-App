@@ -60,10 +60,11 @@ function isFeiertag(datumStr) {
 function calcZuschlaege(datum, startMin, endMin, tagTyp, planId) {
   // tagTyp: 'wt' | 'so' | 'ft'
   const NACHT_AB = 22 * 60;
+  const NACHT_BIS = 6 * 60;
   let normalMin = 0, nachtMin = 0, soFtMin = 0, nachtSoFtMin = 0;
   for(let m = startMin; m < endMin; m++) {
     const h = m % (24*60);
-    const isNacht = h >= NACHT_AB;
+    const isNacht = (h >= NACHT_AB || h < NACHT_BIS);
     const isSo = tagTyp === 'so';
     const isFt = tagTyp === 'ft';
     const isSoFt = isSo || isFt;
@@ -420,7 +421,7 @@ function openHRZeitOverlay(name) {
       return String(a.istStart||'').localeCompare(String(b.istStart||''));
     });
 
-  var safeNameJs = hrEscAttr(String(name).replace(/\/g,'\\').replace(/'/g,"\\'"));
+  var safeNameJs = hrEscAttr(String(name).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
   var today = new Date().toISOString().slice(0,10);
 
   var html = ''+
@@ -826,7 +827,7 @@ function hrCalcEntryIntervals(z) {
   var end = eh*60+em;
   if(end <= start) end += 24*60;
   var pause = parseInt(z.pause||0,10) || 0;
-  // Pause wird vorsichtig am Ende abgezogen. So werden Nachtstunden 04:00–06:00 nicht versehentlich reduziert.
+  // Pause wird vorsichtig am Ende abgezogen. So werden Nachtstunden 22:00–06:00 nicht versehentlich reduziert.
   end = Math.max(start, end - pause);
   return [{start:start, end:end}];
 }
@@ -840,10 +841,12 @@ function hrCalcZuschlagMinuten(z) {
   var isSunday = d.getDay() === 0;
   var isHoliday = isFeiertag(z.datum);
   intervals.forEach(function(iv){
-    // Nachtzuschlag nach aktueller Prima-Regel: nur 04:00 bis 06:00 Uhr.
-    // Bei Schichten über Mitternacht zusätzlich 04:00–06:00 des Folgetages berücksichtigen.
-    nachtMin += hrOverlapMin(iv.start, iv.end, 4*60, 6*60);
-    nachtMin += hrOverlapMin(iv.start, iv.end, 28*60, 30*60);
+    // Nachtzuschlag nach aktueller Prima-Regel: 22:00 bis 06:00 Uhr.
+    // Bei normalen Frühschichten zählt 00:00–06:00 des gleichen Tages.
+    // Bei Spät-/Nachtschichten zählt 22:00–24:00 und ggf. 00:00–06:00 des Folgetages.
+    nachtMin += hrOverlapMin(iv.start, iv.end, 0, 6*60);
+    nachtMin += hrOverlapMin(iv.start, iv.end, 22*60, 24*60);
+    nachtMin += hrOverlapMin(iv.start, iv.end, 24*60, 30*60);
     // Sonntag/Feiertag: nur einmal 25%, auch wenn Sonntag und Feiertag zusammenfallen.
     if(isSunday || isHoliday) soFtMin += (iv.end - iv.start);
   });
@@ -965,7 +968,7 @@ function renderHRGehalt() {
       '</div>'+ 
       '<div style="border-top:1.5px solid #f0f0f0;padding-top:10px;margin-top:2px;">'+
         '<div style="font-size:11px;font-weight:700;color:#1e3a5f;margin-bottom:8px;">💰 Steuerfreie Zuschläge separat</div>'+ 
-        zuschlagRow('🌙','Nacht 04:00–06:00', nachtStd, nachtEuro, '#fef3c7', '#92400e')+
+        zuschlagRow('🌙','Nacht 22:00–06:00', nachtStd, nachtEuro, '#fef3c7', '#92400e')+
         zuschlagRow('☀️','Sonntag', sonntagStd, sonntagEuro, '#dcfce7', '#15803d')+
         zuschlagRow('🎉','Feiertag', feiertagStd, feiertagEuro, '#ede9fe', '#6d28d9')+
         '<div style="font-size:10px;color:#888;margin:6px 0 8px;line-height:1.35;">Sonntag + Feiertag am gleichen Tag wird nur einmal gezählt. Nacht wird zusätzlich gezählt.</div>'+ 
