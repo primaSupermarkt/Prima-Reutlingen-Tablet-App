@@ -1,6 +1,10 @@
 // ═══════════════════════════════════════════════════════════════
 // APP.JS
 // Hauptanwendungslogik der Prima Mitarbeiter-App.
+
+var schwarzesBrett = lsLoad('schwarzesBrett', []);
+var defektMeldungen = lsLoad('defektMeldungen', []);
+
 // Wird NACH folgenden Dateien geladen:
 //   1. store-config.js  (Laden-Konfiguration)
 //   2. firebase.js      (Firebase + localStorage Funktionen)
