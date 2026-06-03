@@ -550,22 +550,44 @@
 <div class="overlay" id="ov-add-task" onclick="if(event.target===this)closeOv('ov-add-task')">
   <div class="modal">
     <h3>➕ Aufgabe hinzufügen</h3>
-    <select id="at-schicht">
-      <option value="early_bake">Frühschicht – Bake-Off</option>
-      <option value="early_laden">Frühschicht – Laden</option>
-      <option value="mid_laden">Mittelschicht – Laden</option>
-      <option value="late_laden">Spätschicht – Laden</option>
-    </select>
-    <input type="text" id="at-time" placeholder="Uhrzeit (z.B. 07:00)">
-    <input type="text" id="at-section" placeholder="Abschnitt (z.B. Öffnung)">
+    <select id="at-schicht"></select>
+    <input type="text" id="at-time" placeholder="Uhrzeit optional (z.B. 07:00)">
+    <input type="text" id="at-section" placeholder="Abschnitt (z.B. start, pause1, pause2, ende)">
     <textarea id="at-text" placeholder="Aufgabenbeschreibung..." rows="2"></textarea>
     <input type="text" id="at-warn" placeholder="⚠️ Warnung (optional)">
-    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:9px;cursor:pointer;">
+    <input type="text" id="at-special" placeholder="Spezialfunktion optional (z.B. temp, backen, regalfoto)">
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:7px;cursor:pointer;">
       <input type="checkbox" id="at-ub"> Übergabepunkt (erscheint in Schichtübergabe)
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:9px;cursor:pointer;">
+      <input type="checkbox" id="at-once"> Nur 1× pro Tag
     </label>
     <div class="modal-btns">
       <button class="m-btn m-cancel" onclick="closeOv('ov-add-task')">Abbrechen</button>
       <button class="m-btn m-ok" onclick="saveTask()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="overlay" id="ov-edit-task" onclick="if(event.target===this)closeOv('ov-edit-task')">
+  <div class="modal">
+    <h3>✏️ Mitarbeiteraufgabe bearbeiten</h3>
+    <select id="et-schicht"></select>
+    <input type="text" id="et-time" placeholder="Uhrzeit optional (z.B. 07:00)">
+    <input type="text" id="et-section" placeholder="Abschnitt (z.B. start, pause1, pause2, ende)">
+    <textarea id="et-text" placeholder="Aufgabenbeschreibung..." rows="2"></textarea>
+    <input type="text" id="et-warn" placeholder="⚠️ Warnung (optional)">
+    <input type="text" id="et-special" placeholder="Spezialfunktion optional (z.B. temp, backen, regalfoto)">
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:7px;cursor:pointer;">
+      <input type="checkbox" id="et-ub"> Übergabepunkt (erscheint in Schichtübergabe)
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:9px;cursor:pointer;">
+      <input type="checkbox" id="et-once"> Nur 1× pro Tag
+    </label>
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-edit-task')">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="updateTask()">Speichern</button>
     </div>
   </div>
 </div>
