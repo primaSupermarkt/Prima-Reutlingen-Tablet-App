@@ -20,6 +20,7 @@ function saveWeeklyTask() {
     warn: document.getElementById('wt-warn').value,
   });
   lsSave('weeklyTasks', weeklyTasks);
+  fbSave('weeklyTasks', weeklyTasks);
   closeOv('ov-add-weekly');
   renderAdmin();
 }
@@ -72,6 +73,8 @@ function saveSLTask(){
     text:txt,
     warn:document.getElementById('sl-at-warn').value,
   });
+  lsSave('slTasks', slTasks);
+  fbSave('slTasks', slTasks);
   closeOv('ov-add-sl-task');
   renderAdmin();
 }
@@ -93,6 +96,8 @@ function updateSLTask(){
   t.section=document.getElementById('sl-et-section').value||'Allgemein';
   t.text=txt;
   t.warn=document.getElementById('sl-et-warn').value;
+  lsSave('slTasks', slTasks);
+  fbSave('slTasks', slTasks);
   closeOv('ov-edit-sl-task');
   renderAdmin();
 }
