@@ -1,0 +1,18 @@
+{
+  "name": "Prima Supermarkt Reutlingen",
+  "short_name": "Prima",
+  "description": "Mitarbeiter-App für Prima Supermarkt Reutlingen",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1e3a5f",
+  "theme_color": "#1e3a5f",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "prima_logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

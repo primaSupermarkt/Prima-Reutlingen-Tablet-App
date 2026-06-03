@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Prima">
+<link rel="apple-touch-icon" href="prima_logo.png">
+<title>Prima Supermarkt</title>
+  <link rel="stylesheet" href="styles.css">
+<link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1e3a5f">
+
+  <!-- Service Worker für Offline-Fähigkeit -->
+
+  <!-- Firebase SDK (muss VOR firebase.js geladen werden) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<!-- ══ HOME ══ -->
+<div class="screen active" id="s-home">
+  <div style="background:var(--black);flex-shrink:0;">
+    <div class="home-top">
+      <div>
+        <div id="greet" style="font-size:12px;color:#555;margin-bottom:3px;"></div>
+        <h2>Was machst du<br>heute?</h2>
+        <div class="dt" id="dateline"></div>
+        <div id="fb-status" style="font-size:10px;margin-top:2px;"></div>
+      </div>
+      <div style="text-align:right;padding-top:2px;">
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;"><div id="live" style="font-size:13px;font-weight:700;color:#555;"></div><button id="logout-btn" onclick="logout()" style="display:none;background:none;border:1px solid #555;border-radius:8px;color:#f87171;font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;font-family:inherit;">⏏ Logout</button></div>
+        <img src="prima_logo.png" style="height:28px;filter:invert(1);margin-top:2px;opacity:0.85;" alt="Prima Supermarkt">
+      </div>
+    </div>
+    <div class="day-bar">
+      <div class="day-left">
+        <div style="font-size:19px;" id="d-ico">📅</div>
+        <div><div class="day-txt" id="d-txt">Werktag</div><div class="day-sub">Tippe zum Ändern</div></div>
+      </div>
+      <div class="tog">
+        <button class="tog-btn on" id="btn-wt" onclick="setDay('wt')">Werktag</button>
+        <button class="tog-btn" id="btn-we" onclick="setDay('we')">Sa/So</button>
+        <button class="tog-btn" id="btn-ft" onclick="setDay('ft')">Feiertag</button>
+      </div>
+    </div>
+  </div>
+  <div class="tiles">
+    <div class="tile t-early" id="tile-early">
+      <div><div class="tile-ico">🌅</div><div class="tile-lbl">Früh-<br>schicht</div><div class="tile-sub">Frühschicht</div></div>
+      <div class="tile-arr">›</div>
+    </div>
+    <div class="tile t-mid" id="tile-mid">
+      <div><div class="tile-ico">☀️</div><div class="tile-lbl">Mittel-<br>schicht</div><div class="tile-sub">Mittelschicht</div></div>
+      <div class="tile-arr">›</div>
+    </div>
+    <div class="tile t-late" id="tile-late">
+      <div><div class="tile-ico">🌙</div><div class="tile-lbl">Spät-<br>schicht</div><div class="tile-sub">Spätschicht</div></div>
+      <div class="tile-arr">›</div>
+    </div>
+    <div class="tile t-info" id="tile-info">
+      <div><div class="tile-ico">📋</div><div class="tile-lbl">Infor-<br>mationen</div><div class="tile-sub">Anleitungen & Hilfe</div></div>
+      <div class="tile-arr">›</div>
+    </div>
+    <div class="tile t-sl" id="tile-sl" style="min-height:70px;padding:14px 16px;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <div style="font-size:22px;">👔</div>
+        <div><div class="tile-lbl" style="font-size:14px;">Schichtleiter</div><div class="tile-sub">Dashboard & Übergaben</div></div>
+      </div>
+      <div id="sl-badge" style="display:none;" class="notif-badge">!</div>
+      <div id="brett-badge" style="display:none;position:absolute;top:6px;right:6px;background:#ef4444;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:900;align-items:center;justify-content:center;z-index:10;"></div>
+      <div id="defekt-badge" style="display:none;position:absolute;top:6px;right:6px;background:#f59e0b;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:900;align-items:center;justify-content:center;z-index:10;"></div>
+      <div id="brett-badge-alt" style="display:none;" class="notif-badge" title="Schwarzes Brett">!</div>
+      <div id="defekt-badge-alt" style="display:none;" class="notif-badge" title="Defekte">!</div>
+      <div class="tile-arr" style="position:static;margin-left:auto;">›</div>
+    </div>
+    <div class="tile t-admin" id="tile-admin" style="min-height:70px;padding:14px 16px;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <div style="font-size:22px;">⚙️</div>
+        <div><div class="tile-lbl" style="font-size:14px;">Admin</div><div class="tile-sub">Aufgaben & Einstellungen</div></div>
+      </div>
+      <div class="tile-arr" style="position:static;margin-left:auto;">›</div>
+    </div>
+  </div>
+  <!-- Aktive Checklisten -->
+  <div id="home-active-cl" style="padding:6px 14px 0;flex-shrink:0;"></div>
+  <!-- Kommen/Gehen Stempeluhr -->
+  <div style="padding:6px 14px 6px;display:flex;gap:10px;flex-shrink:0;">
+    <button onclick="stempelKommen()" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;">
+      🟢 Kommen
+    </button>
+    <button onclick="stempelGehen()" style="flex:1;background:#dc2626;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;">
+      🔴 Gehen
+    </button>
+  </div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ ROLLEN-AUSWAHL ══ -->
+<div class="screen" id="s-bereich">
+  <div class="hdr"><button class="back" onclick="go('s-home')">&#8249; Zurück</button><div class="hdr-sub" id="b-lbl">Deine Rolle</div></div>
+  <div style="flex:1;overflow-y:auto;padding:14px 16px 24px;">
+    <div style="font-size:20px;font-weight:900;margin-bottom:4px;">Wie bist du eingeteilt?</div>
+    <div style="font-size:13px;color:#888;margin-bottom:16px;">Wähle deine Rolle für diese Schicht</div>
+    <div id="rollen-container" style="display:flex;flex-direction:column;gap:10px;"></div>
+  </div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- s-times entfernt -->
+
+
+<!-- ══ ROLLE ══ -->
+<div class="screen" id="s-rolle">
+  <div class="hdr"><button class="back" onclick="go('s-bereich')">‹ Zurück</button><div class="hdr-sub" id="rolle-lbl">Einteilung</div></div>
+  <div style="padding:14px 18px 10px;flex-shrink:0;">
+    <div style="font-size:20px;font-weight:900;color:var(--black);">Wie bist du eingeteilt?</div>
+    <div style="font-size:12px;color:var(--gt);margin-top:3px;">Wähle deine heutige Aufgabe</div>
+  </div>
+  <div style="padding:0 16px 24px;display:flex;flex-direction:column;gap:10px;">
+    <div onclick="setRolle('kasse')" style="background:#fff;border:2.5px solid #3b82f6;border-radius:14px;padding:20px 18px;cursor:pointer;display:flex;align-items:center;gap:14px;">
+      <div style="font-size:32px;">🖥️</div>
+      <div><div style="font-size:17px;font-weight:800;color:var(--black);">Kasse</div><div style="font-size:12px;color:var(--gt);margin-top:3px;">Hauptsächlich kassieren, bei freier Zeit Regale</div></div>
+    </div>
+    <div onclick="setRolle('springer')" style="background:#fff;border:2.5px solid #f0a500;border-radius:14px;padding:20px 18px;cursor:pointer;display:flex;align-items:center;gap:14px;">
+      <div style="font-size:32px;">📦</div>
+      <div><div style="font-size:17px;font-weight:800;color:var(--black);">Springer / Regal</div><div style="font-size:12px;color:var(--gt);margin-top:3px;">Hauptsächlich Regalbestückung, Kassenunterstützung</div></div>
+    </div>
+    <div onclick="setRolle('standard')" style="background:#fff;border:2.5px solid var(--gm);border-radius:14px;padding:20px 18px;cursor:pointer;display:flex;align-items:center;gap:14px;">
+      <div style="font-size:32px;">⚡</div>
+      <div><div style="font-size:17px;font-weight:800;color:var(--black);">Allround</div><div style="font-size:12px;color:var(--gt);margin-top:3px;">Alle Aufgaben</div></div>
+    </div>
+  </div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ NAME ══ -->
+<div class="screen" id="s-name">
+  <div class="hdr"><button class="back" onclick="go('s-bereich')">‹ Zurück</button><div class="hdr-sub">Wer bist du?</div></div>
+  <div style="padding:13px 18px 9px;flex-shrink:0;"><div style="font-size:20px;font-weight:900;color:var(--black);">Wähle deinen Namen</div></div>
+  <div class="name-grid" id="name-grid"></div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ CHECKLISTE ══ -->
+<div class="screen" id="s-cl">
+  <div class="hdr" id="cl-hdr"><button class="back" onclick="go('s-name')">‹ Zurück</button><div class="hdr-sub" id="cl-lbl"></div><button class="back" onclick="confirmGoHome()" style="margin-left:auto;font-size:18px;padding:4px 6px;" title="Home">🏠</button><button class="back" onclick="logout()" style="font-size:13px;padding:4px 8px;color:#f87171;" title="Ausloggen">⏏</button></div>
+  <div class="prog-wrap"><div class="prog-fill" id="cl-prog" style="background:var(--green);"></div></div>
+  <div id="ub-open-banner" style="display:none;" class="ubergabe-banner" onclick="goUbergabeAnnehmen()">
+    <div class="ub-ico">🔄</div>
+    <div><div class="ub-title">Offene Schichtübergabe!</div><div class="ub-sub">Tippe hier um die Übergabe anzunehmen</div></div>
+    <div class="chev">›</div>
+  </div>
+  <div class="cl-body" id="cl-body"></div>
+  <div class="done-bar" id="cl-done">✅ Alle Aufgaben bearbeitet!</div>
+  <button class="ubergabe-btn" id="ub-btn" style="display:none;" onclick="startUbergabe()">🔄 Schichtübergabe vorbereiten</button>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ BACKEN ══ -->
+<div class="screen" id="s-backen">
+  <div class="hdr" style="background:#b45309;"><button class="back" onclick="go('s-cl')">‹ Zurück</button><div class="hdr-sub">🔥 Backvorgang</div></div>
+  <div class="prog-wrap"><div class="prog-fill" id="bk-prog" style="background:#fff;"></div></div>
+  <div style="padding:9px 16px 4px;font-size:11px;color:var(--gt);flex-shrink:0;">Alle Schritte abhaken – kehrt dann automatisch zurück</div>
+  <div class="cl-body" id="bk-body"></div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ REGALFOTOS ══ -->
+<div class="screen" id="s-regal">
+  <div class="hdr" style="background:#0f766e;"><button class="back" onclick="go('s-cl')">‹ Zurück</button><div class="hdr-sub">📸 Regalfotos</div></div>
+  <div style="flex:1;overflow-y:auto;padding:12px 14px 20px;" id="regal-body"></div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH</div>
+</div>
+
+<!-- ══ REGALFOTOS ══ -->
+<!-- ══ SCHICHTÜBERGABE VORBEREITEN ══ -->
+<div class="screen" id="s-ub-prep">
+  <div class="hdr" style="background:#0f3460;"><button class="back" onclick="go('s-cl')">‹ Zurück</button><div class="hdr-sub">🔄 Schichtübergabe</div></div>
+  <div style="padding:12px 18px 8px;flex-shrink:0;">
+    <div style="font-size:18px;font-weight:900;color:var(--black);">Übergabe vorbereiten</div>
+    <div style="font-size:12px;color:var(--gt);margin-top:2px;">Kontrolliere die Übergabepunkte</div>
+  </div>
+  <div class="ub-cl-body" id="ub-prep-body"></div>
+  <button class="ubergabe-btn" style="background:#0f3460;" onclick="submitUbergabe()">✅ Schichtübergabe abschicken</button>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ SCHICHTÜBERGABE ANNEHMEN ══ -->
+<div class="screen" id="s-ub-take">
+  <div class="hdr" style="background:#0f3460;"><button class="back" onclick="go('s-cl')">‹ Zurück</button><div class="hdr-sub">🔄 Übergabe annehmen</div></div>
+  <div style="padding:12px 18px 8px;flex-shrink:0;" id="ub-take-info"></div>
+  <div class="ub-cl-body" id="ub-take-body"></div>
+  <button class="ubergabe-btn" id="ub-accept-btn" style="background:var(--green);" onclick="acceptUbergabe()">✅ Übergabe bestätigen</button>
+  <button class="ubergabe-btn" id="ub-reject-btn" style="background:#dc2626;margin-top:0;" onclick="rejectUbergabe()">❌ Übergabe ablehnen</button>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ INFO ══ -->
+<div class="screen" id="s-info">
+  <div class="hdr"><button class="back" onclick="go('s-home')">&#8249; Zurück</button><div class="hdr-sub">Informationen</div></div>
+  <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:12px;padding:14px;">
+
+    <!-- Kachel 1: Anleitungen -->
+    <div onclick="openInfoUnterkategorie('anleitungen')" style="background:linear-gradient(135deg,#1e3a5f,#0f3460);border-radius:18px;padding:20px 16px;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;position:relative;min-height:140px;">
+      <div style="font-size:36px;position:absolute;top:16px;left:16px;">&#128218;</div>
+      <div style="font-size:15px;font-weight:900;color:#fff;line-height:1.2;">Anleitungen</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:3px;">Laden · Lager · Technik</div>
+      <div style="position:absolute;right:12px;bottom:12px;font-size:16px;color:rgba(255,255,255,.2);">&#8250;</div>
+    </div>
+
+    <!-- Kachel 2: Reinigung -->
+    <div onclick="openInfoUnterkategorie('reinigung')" style="background:linear-gradient(135deg,#0369a1,#0c4a6e);border-radius:18px;padding:20px 16px;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;position:relative;min-height:140px;">
+      <div style="font-size:36px;position:absolute;top:16px;left:16px;">&#9989;</div>
+      <div style="font-size:15px;font-weight:900;color:#fff;line-height:1.2;">Reinigung &amp;<br>Kontrollen</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:3px;">Temp · Maschinen</div>
+      <div style="position:absolute;right:12px;bottom:12px;font-size:16px;color:rgba(255,255,255,.2);">&#8250;</div>
+    </div>
+
+    <!-- Kachel 3: Formulare -->
+    <div onclick="openInfoUnterkategorie('formulare')" style="background:linear-gradient(135deg,#1a1a2e,#2d2d44);border-radius:18px;padding:20px 16px;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;position:relative;min-height:140px;">
+      <div style="font-size:36px;position:absolute;top:16px;left:16px;">&#128203;</div>
+      <div style="font-size:15px;font-weight:900;color:#fff;line-height:1.2;">Formulare &amp;<br>Reports</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:3px;">Strafantrag · Listen</div>
+      <div style="position:absolute;right:12px;bottom:12px;font-size:16px;color:rgba(255,255,255,.2);">&#8250;</div>
+    </div>
+
+    <!-- Kachel 4: Mein Profil -->
+    <div onclick="openMaProfil()" style="background:linear-gradient(135deg,#0f766e,#0a5952);border-radius:18px;padding:20px 16px;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;position:relative;min-height:140px;">
+      <div style="font-size:36px;position:absolute;top:16px;left:16px;">&#128100;</div>
+      <div style="font-size:15px;font-weight:900;color:#fff;line-height:1.2;">Mein Profil</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:3px;">Zeiten · Urlaub · Profil</div>
+      <div style="position:absolute;right:12px;bottom:12px;font-size:16px;color:rgba(255,255,255,.2);">&#8250;</div>
+    </div>
+
+  </div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH</div>
+</div>
+
+<!-- ══ INFO UNTERKATEGORIEN ══ -->
+<div class="screen" id="s-info-sub">
+  <div class="hdr" id="info-sub-hdr"><button class="back" onclick="go('s-info')">&#8249; Zurück</button><div class="hdr-sub" id="info-sub-titel"></div></div>
+  <div style="flex:1;overflow-y:auto;padding:12px 14px 24px;" id="info-sub-body"></div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH</div>
+</div>
+
+
+
+<!-- ══ INFO CHECKLISTEN ══ -->
+<div class="screen" id="s-info-cl">
+  <div class="hdr" id="icl-hdr"><button class="back" onclick="go('s-info')">‹ Zurück</button><div class="hdr-sub" id="icl-sub"></div></div>
+  <div style="flex:1;overflow-y:auto;" id="icl-body"></div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ INFO DETAIL ══ -->
+<div class="screen" id="s-info-detail">
+  <div class="hdr"><button class="back" onclick="go('s-info')">‹ Zurück</button><div class="hdr-sub" id="id-lbl"></div></div>
+  <div style="padding:12px 18px 6px;flex-shrink:0;"><div style="font-size:18px;font-weight:900;" id="id-title"></div></div>
+  <div style="flex:1;overflow-y:auto;padding:12px 16px 24px;" id="id-body"></div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ TEMPERATURKONTROLLE ══ -->
+<div class="screen" id="s-temp">
+  <div class="hdr" style="background:#0369a1;"><button class="back" onclick="go('s-cl')">‹ Zurück</button><div class="hdr-sub">🌡️ Temperaturkontrolle</div></div>
+  <div class="prog-wrap"><div class="prog-fill" id="temp-prog" style="background:#0ea5e9;"></div></div>
+  <div style="padding:10px 16px 6px;flex-shrink:0;">
+    <div style="font-size:11px;color:#666;">Tippe auf ein Gerät um die Temperatur einzugeben. Grün = OK, Rot = Abweichung.</div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:8px 14px 20px;" id="temp-body"></div>
+  <button id="temp-submit-btn" style="display:none;margin:0 14px 12px;background:#0369a1;color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;width:calc(100% - 28px);" onclick="submitTemp()">✅ Temperaturkontrolle abschließen</button>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ SLUSH REINIGUNG ══ -->
+<div class="screen" id="s-slush">
+  <div class="hdr" style="background:#7c3aed;"><button class="back" onclick="go('s-cl')">‹ Zurück</button><div class="hdr-sub">🧊 Slushmaschine Reinigung</div></div>
+  <div style="flex:1;overflow-y:auto;padding:14px 16px 20px;">
+    <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:12px;">
+      <div style="font-size:16px;font-weight:800;margin-bottom:8px;">📋 Reinigungsanleitung</div>
+      <div style="font-size:13px;color:#444;line-height:1.7;">
+        <div style="display:flex;gap:8px;margin-bottom:6px;"><span style="font-weight:700;color:#7c3aed;">1.</span> Deckel entnehmen</div>
+        <div style="display:flex;gap:8px;margin-bottom:6px;"><span style="font-weight:700;color:#7c3aed;">2.</span> Enteisung durchführen</div>
+        <div style="display:flex;gap:8px;margin-bottom:6px;"><span style="font-weight:700;color:#7c3aed;">3.</span> Flüssigkeit herausnehmen</div>
+        <div style="display:flex;gap:8px;margin-bottom:6px;"><span style="font-weight:700;color:#7c3aed;">4.</span> Behälter mit lauwarmem Wasser durchspülen</div>
+        <div style="display:flex;gap:8px;"><span style="font-weight:700;color:#7c3aed;">5.</span> Behälter gründlich reinigen und trocknen</div>
+      </div>
+    </div>
+    <div style="background:#f5f3ff;border:2px solid #7c3aed;border-radius:14px;padding:16px;margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:700;color:#5b21b6;margin-bottom:4px;">⚠️ Einmal pro Woche durchzuführen</div>
+      <div style="font-size:11px;color:#7c3aed;">Letzte Reinigung: <span id="slush-last-date">–</span></div>
+    </div>
+    <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Mitarbeiter bestätigt Reinigung:</div>
+      <div style="font-size:12px;color:#666;margin-bottom:8px;">Name: <strong id="slush-ma-name">–</strong></div>
+      <div style="font-size:12px;color:#666;margin-bottom:12px;">Datum: <strong id="slush-date-display">–</strong></div>
+      <button onclick="confirmSlush()" style="width:100%;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">✅ Reinigung bestätigen</button>
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">📅 Reinigungshistorie</div>
+    <div id="slush-history-list"></div>
+  </div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ INVENTUR ══ -->
+<div class="screen" id="s-inventur">
+  <div class="hdr" style="background:#0f766e;"><button class="back" onclick="go('s-cl')">‹ Zurück</button><div class="hdr-sub">📋 Zwischeninventur</div></div>
+  <div style="padding:10px 16px 6px;flex-shrink:0;">
+    <div style="font-size:16px;font-weight:900;color:var(--black);" id="inv-title">Inventur</div>
+    <div style="font-size:11px;color:var(--gt);margin-top:2px;">Artikel eingeben · Soll/Ist · Differenzen werden gemeldet</div>
+  </div>
+  <div class="prog-wrap"><div class="prog-fill" id="inv-prog" style="background:#0f766e;"></div></div>
+  <div style="flex:1;overflow-y:auto;padding:10px 14px 16px;" id="inv-body"></div>
+  <div style="padding:0 14px 12px;flex-shrink:0;">
+    <button onclick="addInventurRow()" style="width:100%;background:#f4f4f4;border:2px dashed #ccc;border-radius:11px;padding:13px;font-size:13px;font-weight:700;color:#666;cursor:pointer;font-family:inherit;">+ Artikel hinzufügen</button>
+  </div>
+  <button id="inv-submit-btn" onclick="submitInventur()" style="margin:0 14px 12px;background:#0f766e;color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:800;cursor:pointer;width:calc(100% - 28px);font-family:inherit;flex-shrink:0;">✅ Inventur abschließen</button>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ STRAFANTRAG ══ -->
+<div class="screen" id="s-strafantrag">
+  <div class="hdr" style="background:#1a1a2e;"><button class="back" onclick="go('s-info')">&#8249; Zurück</button><div class="hdr-sub">&#128110; Strafantrag</div></div>
+  <div style="flex:1;overflow-y:auto;padding:12px 14px 24px;" id="strafantrag-body"></div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH</div>
+</div>
+
+<!-- ══ STRAFANTRAG HISTORIE ══ -->
+<div class="screen" id="s-strafantrag-hist">
+  <div class="hdr" style="background:#1a1a2e;"><button class="back" onclick="go('s-strafantrag')">&#8249; Zurück</button><div class="hdr-sub">&#128110; Anträge Historie</div></div>
+  <div style="flex:1;overflow-y:auto;padding:12px 14px 24px;" id="strafantrag-hist-body"></div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH</div>
+</div>
+
+<!-- ══ STRAFANTRAG ══ -->
+
+
+<!-- ══ SCHWARZES BRETT ══ -->
+<div class="screen" id="s-brett">
+  <div class="hdr" style="background:#1a1a1a;"><button class="back" onclick="go('s-home')">‹ Zurück</button><div class="hdr-sub">📌 Schwarzes Brett</div></div>
+  <div style="flex:1;overflow-y:auto;padding:12px 14px 20px;" id="brett-body"></div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH</div>
+</div>
+
+<!-- ══ DEFEKT MELDEN ══ -->
+<div class="screen" id="s-defekt">
+  <div class="hdr" style="background:#dc2626;"><button class="back" onclick="go('s-cl')">‹ Zurück</button><div class="hdr-sub">🔧 Defekt melden</div></div>
+  <div style="flex:1;overflow-y:auto;padding:12px 14px 20px;">
+    <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 7px rgba(0,0,0,.07);margin-bottom:10px;">
+      <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Gerät / Bereich</label>
+      <input type="text" id="def-geraet" placeholder="z.B. Kühlschrank 2, Schiebetür, Backofen..." style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:14px;font-family:inherit;outline:none;margin-bottom:10px;">
+      <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Beschreibung</label>
+      <textarea id="def-beschreibung" placeholder="Was ist defekt? Was ist passiert?" rows="3" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:14px;font-family:inherit;outline:none;resize:none;margin-bottom:10px;"></textarea>
+      <button onclick="submitDefekt()" style="width:100%;background:#dc2626;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">🔧 Defekt melden</button>
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">Offene Defekte</div>
+    <div id="defekt-list"></div>
+  </div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH</div>
+</div>
+
+<!-- ══ URLAUB ══ -->
+<div class="screen" id="s-urlaub">
+  <div class="hdr" style="background:#0f766e;"><button class="back" onclick="go('s-maprofil')">‹ Zurück</button><div class="hdr-sub">🌴 Urlaubsantrag</div><div id="urlaub-hdr-name" style="font-size:11px;color:rgba(255,255,255,.7);margin-left:auto;padding-right:4px;"></div></div>
+  <div style="flex:1;overflow-y:auto;padding:12px 14px 20px;">
+    <!-- Kontingent-Anzeige -->
+    <div id="urlaub-kontingent" style="background:linear-gradient(135deg,#0f766e,#065f46);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:none;">
+      <div style="font-size:11px;color:rgba(255,255,255,.7);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Mein Urlaubskonto</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="text-align:center;">
+          <div id="uk-anspruch" style="font-size:24px;font-weight:900;color:#fff;">–</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.6);">Anspruch</div>
+        </div>
+        <div style="text-align:center;">
+          <div id="uk-verbraucht" style="font-size:24px;font-weight:900;color:#fbbf24;">–</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.6);">Verbraucht</div>
+        </div>
+        <div style="text-align:center;">
+          <div id="uk-verfuegbar" style="font-size:24px;font-weight:900;color:#86efac;">–</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.6);">Verfügbar</div>
+        </div>
+      </div>
+    </div>
+    <!-- Antragsformular -->
+    <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 7px rgba(0,0,0,.07);margin-bottom:10px;">
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px;">Neuer Antrag</div>
+      <!-- Name (schreibgeschützt, aus Login) -->
+      <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Mitarbeiter</label>
+      <div id="urlaub-ma-display" style="background:#f4f4f4;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:15px;font-weight:700;color:#222;margin-bottom:10px;"></div>
+      <input type="hidden" id="urlaub-ma">
+      <!-- Von / Bis -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div><label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Von</label>
+          <input type="date" id="urlaub-von" onchange="updateUrlaubTage()" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit;outline:none;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Bis</label>
+          <input type="date" id="urlaub-bis" onchange="updateUrlaubTage()" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit;outline:none;"></div>
+      </div>
+      <!-- Urlaubstage (manuell einzutragen) -->
+      <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Urlaubstage <span style="font-weight:400;color:#aaa;">(bitte selbst eintragen)</span></label>
+      <input type="number" id="urlaub-tage" min="0.5" step="0.5" placeholder="z.B. 5" style="width:100%;border:2px solid #0f766e;border-radius:8px;padding:9px 10px;font-size:18px;font-weight:700;font-family:inherit;outline:none;margin-bottom:4px;text-align:center;">
+      <div id="urlaub-tage-hint" style="font-size:11px;color:#888;margin-bottom:10px;text-align:center;"></div>
+      <!-- Bemerkung -->
+      <label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Bemerkung (optional)</label>
+      <input type="text" id="urlaub-grund" placeholder="z.B. Familienurlaub" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:14px;font-family:inherit;outline:none;margin-bottom:10px;">
+      <button onclick="submitUrlaub()" style="width:100%;background:#0f766e;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">✉️ Antrag einreichen</button>
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">Meine Anträge</div>
+    <div id="urlaub-list"></div>
+  </div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH</div>
+</div>
+
+<!-- ══ ZEITERFASSUNG ══ -->
+<div class="screen" id="s-ze">
+  <div class="hdr" style="background:#1e3a5f;"><button class="back" onclick="go('s-cl')">‹ Zurück</button><div class="hdr-sub">⏱️ Zeiterfassung</div></div>
+  <div style="flex:1;overflow-y:auto;padding:14px 16px 24px;" id="ze-body"></div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH</div>
+</div>
+
+<!-- ══ MA PROFIL ══ -->
+<div class="screen" id="s-maprofil">
+  <div class="hdr" style="background:#0f3460;"><button class="back" onclick="go('s-info')">‹ Zurück</button><div class="hdr-sub" id="maprofil-title">Mein Profil</div></div>
+  <div style="flex:1;overflow-y:auto;padding:14px 16px 24px;" id="maprofil-body"></div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH</div>
+</div>
+
+<!-- ══ HR KONSOLE (SL) ══ -->
+<div class="screen" id="s-hr">
+  <div class="hdr" style="background:#1e3a5f;"><button class="back" onclick="go('s-sl')">‹ Zurück</button><div class="hdr-sub">👥 HR & Zeiterfassung</div></div>
+  <div style="background:#1e3a5f;padding:0 12px 10px;flex-shrink:0;display:flex;gap:5px;">
+    <button id="hr-t1"  style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:#fff;color:#1e3a5f;">⏱️ Zeiten</button>
+    <button id="hr-t2"  style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">🌴 Urlaub</button>
+    <button id="hr-t3"  style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">🤒 Krank</button>
+    <button id="hr-t4"  style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">👤 Profile</button>
+    <button id="hr-t5"  style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">📋 Pläne</button>
+    <button id="hr-t6"  style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">💰 Gehalt</button>
+  </div>
+  <div id="hr-tab-zeiten" style="flex:1;overflow-y:auto;padding:12px 14px 24px;"></div>
+  <div id="hr-tab-urlaub" style="display:none;flex:1;overflow-y:auto;padding:12px 14px 24px;"></div>
+  <div id="hr-tab-krank" style="display:none;flex:1;overflow-y:auto;padding:12px 14px 24px;"></div>
+  <div id="hr-tab-profile" style="display:none;flex:1;overflow-y:auto;padding:12px 14px 24px;"></div>
+  <div id="hr-tab-zuschlag" style="display:none;flex:1;overflow-y:auto;padding:12px 14px 24px;"><div id="hr-zuschlag-pane"></div></div>
+  <div id="hr-tab-gehalt" style="display:none;overflow-y:auto;padding:12px 14px 24px;"><div id="hr-gehalt-pane"></div></div>
+  
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH</div>
+</div>
+
+<!-- ══ ADMIN ══ -->
+<div class="screen" id="s-admin">
+  <div class="hdr"><button class="back" onclick="go('s-home')">‹ Zurück</button><div class="hdr-sub">⚙️ Admin</div></div>
+  <div class="admin-body" id="admin-body"></div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ SCHICHTLEITER ══ -->
+<div class="screen" id="s-sl">
+  <div class="hdr" style="background:#0f3460;"><button class="back" onclick="go('s-home')">‹ Zurück</button><div class="hdr-sub">👔 Schichtleiter</div></div>
+  <div style="background:#0f3460;padding:0 12px 10px;flex-shrink:0;display:flex;gap:5px;">
+    <button id="slt-dash" onclick="slTab('dash')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:#fff;color:#0f3460;">📊 Dashboard</button>
+    <button id="slt-umsatz" onclick="slTab('umsatz')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">💰 Umsatz</button>
+    <button id="slt-dp" onclick="slTab('dp')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">📅 Dienst</button>
+    <button id="slt-rep" onclick="slTab('rep')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">📋 Report</button>
+    <button onclick="openHR()" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">👥 HR</button>
+    <button id="slt-aufg" onclick="slTab('aufg')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">&#128204; Aufgaben</button>
+    <button id="slt-regal" onclick="slTab('regal')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">&#128247; Regale</button>
+  </div>
+  <div id="sl-tab-dash" class="sl-body" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px 24px;"></div>
+  <div id="sl-tab-umsatz" style="display:none;flex:1;overflow-y:auto;padding:12px 16px 24px;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">💰 Tagesumsatz & Kunden</div>
+    <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 7px rgba(0,0,0,.07);margin-bottom:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div><label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Datum</label>
+          <input type="date" id="uz-datum" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit;outline:none;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Umsatz (€)</label>
+          <input type="number" id="uz-betrag" placeholder="0" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit;outline:none;"></div>
+      </div>
+      <div style="margin-bottom:10px;"><label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Anzahl Kunden</label>
+        <input type="number" id="uz-kunden" placeholder="0" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit;outline:none;"></div>
+      <button onclick="saveUmsatz()" style="width:100%;background:#0f3460;color:#fff;border:none;border-radius:9px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">💾 Speichern</button>
+    </div>
+    <div id="uz-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;"></div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">📅 Letzte Einträge</div>
+    <div id="uz-list"></div>
+  </div>
+  <div id="sl-tab-dp" style="display:none;flex:1;overflow-y:auto;">
+    <div id="dp-root"></div>
+  </div>
+  <div id="sl-tab-rep" style="display:none;flex:1;overflow-y:auto;padding:12px 16px 24px;">
+    <div id="sl-report-box"></div>
+  </div>
+  <div id="sl-tab-aufg" style="display:none;flex:1;overflow-y:auto;padding:12px 16px 24px;min-height:0;">
+    <div id="sl-pers-aufg-pane" style="width:100%;min-height:50px;"></div>
+  </div>
+  <div id="sl-tab-regal" style="display:none;flex:1;overflow-y:auto;padding:12px 16px 24px;">
+    <div id="sl-regal-pane"></div>
+  </div>
+  </div>
+  <div class="bottom-bar">Prima Supermarkt Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ HISTORIE ══ -->
+<div class="screen" id="s-hist">
+  <div class="hdr"><button class="back" onclick="go('s-admin')">‹ Zurück</button><div class="hdr-sub">📊 Historie</div></div>
+  <div style="flex:1;overflow-y:auto;padding:10px 16px 24px;" id="hist-body"></div>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
+<!-- ══ MODALS ══ -->
+<div class="overlay" id="ov-pw" onclick="if(event.target===this){closeOv('ov-pw');pwPinReset();}">
+  <div class="modal" style="max-width:300px;">
+    <h3>🔒 Passwort</h3>
+    <div id="pw-pin-display" style="width:100%;border:1.5px solid #e0e0e0;border-radius:10px;padding:10px;font-size:26px;letter-spacing:10px;text-align:center;margin-bottom:8px;min-height:48px;background:#f9f9f9;color:#333;" data-pin=""></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">
+      <button class="pw-pin-btn" data-k="1" style="background:#f0f0f0;border:none;border-radius:10px;padding:14px;font-size:20px;font-weight:700;cursor:pointer;">1</button>
+      <button class="pw-pin-btn" data-k="2" style="background:#f0f0f0;border:none;border-radius:10px;padding:14px;font-size:20px;font-weight:700;cursor:pointer;">2</button>
+      <button class="pw-pin-btn" data-k="3" style="background:#f0f0f0;border:none;border-radius:10px;padding:14px;font-size:20px;font-weight:700;cursor:pointer;">3</button>
+      <button class="pw-pin-btn" data-k="4" style="background:#f0f0f0;border:none;border-radius:10px;padding:14px;font-size:20px;font-weight:700;cursor:pointer;">4</button>
+      <button class="pw-pin-btn" data-k="5" style="background:#f0f0f0;border:none;border-radius:10px;padding:14px;font-size:20px;font-weight:700;cursor:pointer;">5</button>
+      <button class="pw-pin-btn" data-k="6" style="background:#f0f0f0;border:none;border-radius:10px;padding:14px;font-size:20px;font-weight:700;cursor:pointer;">6</button>
+      <button class="pw-pin-btn" data-k="7" style="background:#f0f0f0;border:none;border-radius:10px;padding:14px;font-size:20px;font-weight:700;cursor:pointer;">7</button>
+      <button class="pw-pin-btn" data-k="8" style="background:#f0f0f0;border:none;border-radius:10px;padding:14px;font-size:20px;font-weight:700;cursor:pointer;">8</button>
+      <button class="pw-pin-btn" data-k="9" style="background:#f0f0f0;border:none;border-radius:10px;padding:14px;font-size:20px;font-weight:700;cursor:pointer;">9</button>
+      <div></div>
+      <button class="pw-pin-btn" data-k="0" style="background:#f0f0f0;border:none;border-radius:10px;padding:14px;font-size:20px;font-weight:700;cursor:pointer;">0</button>
+      <button class="pw-pin-btn" data-k="⌫" style="background:#fee2e2;border:none;border-radius:10px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;">⌫</button>
+    </div>
+    <div id="pw-err" style="color:#dc2626;font-size:12px;margin-bottom:8px;display:none;text-align:center;">Falsches Passwort</div>
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-pw');pwPinReset()">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="checkPw()">Weiter</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-del-pw" onclick="if(event.target===this)closeOv('ov-del-pw')">
+  <div class="modal">
+    <h3>🔒 Löschen bestätigen</h3>
+    <input type="password" id="delpw-inp" placeholder="Passwort" onkeydown="if(event.key==='Enter')checkDelPw()">
+    <div id="delpw-err" style="color:#dc2626;font-size:12px;margin-bottom:8px;display:none;">Falsches Passwort</div>
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-del-pw')">Abbrechen</button>
+      <button class="m-btn m-danger" onclick="checkDelPw()">Löschen</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-add-task" onclick="if(event.target===this)closeOv('ov-add-task')">
+  <div class="modal">
+    <h3>➕ Aufgabe hinzufügen</h3>
+    <select id="at-schicht">
+      <option value="early_bake">Frühschicht – Bake-Off</option>
+      <option value="early_laden">Frühschicht – Laden</option>
+      <option value="mid_laden">Mittelschicht – Laden</option>
+      <option value="late_laden">Spätschicht – Laden</option>
+    </select>
+    <input type="text" id="at-time" placeholder="Uhrzeit (z.B. 07:00)">
+    <input type="text" id="at-section" placeholder="Abschnitt (z.B. Öffnung)">
+    <textarea id="at-text" placeholder="Aufgabenbeschreibung..." rows="2"></textarea>
+    <input type="text" id="at-warn" placeholder="⚠️ Warnung (optional)">
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:9px;cursor:pointer;">
+      <input type="checkbox" id="at-ub"> Übergabepunkt (erscheint in Schichtübergabe)
+    </label>
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-add-task')">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="saveTask()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-add-name" onclick="if(event.target===this)closeOv('ov-add-name')">
+  <div class="modal">
+    <h3>👤 Mitarbeiter hinzufügen</h3>
+    <input type="text" id="an-inp" placeholder="Name" onkeydown="if(event.key==='Enter')saveName()">
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-add-name')">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="saveName()">Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-add-reason" onclick="if(event.target===this)closeOv('ov-add-reason')">
+  <div class="modal">
+    <h3>➕ Begründung hinzufügen</h3>
+    <input type="text" id="ar-inp" placeholder="z.B. Ware nicht gekommen" onkeydown="if(event.key==='Enter')saveReason()">
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-add-reason')">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="saveReason()">Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ov-add-info" onclick="if(event.target===this)closeOv('ov-add-info')">
+  <div class="modal">
+    <h3>🔗 Info-Link hinzufügen</h3>
+    <select id="ai-bereich" onchange="updateSubSelect()">
+      <option value="Lager">🏭 Lager</option>
+      <option value="Laden">🛒 Laden</option>
+      <option value="Technik">🎵 Technik / Musik & Licht</option>
+    </select>
+    <select id="ai-sub"></select>
+    <input type="text" id="ai-title" placeholder="Titel (z.B. Kühlschrank reinigen)">
+    <input type="text" id="ai-url" placeholder="Link (https://...)">
+    <div style="font-size:11px;color:#888;margin-bottom:9px;">💡 Tipp: Google Drive → Teilen → Jeder mit Link → Link kopieren</div>
+    <div class="modal-btns">
+      <button class="m-btn m-cancel" onclick="closeOv('ov-add-info')">Abbrechen</button>
+      <button class="m-btn m-ok" onclick="saveInfo()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+
+  <!-- Service Worker für Offline-Fähigkeit -->
+
+
+  <!-- Service Worker für Offline-Fähigkeit -->
+  <script>
+    if('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js')
+        .catch(function(err){ console.warn('[Prima] SW:', err); });
+    }
+  </script>
+
+  <!-- Firebase SDK (muss VOR firebase.js geladen werden) -->
+      <!-- App-Dateien (Reihenfolge beachten!) -->
+  <!-- Kern: Konfiguration, Firebase, Stammdaten -->
+  <script src="store-config.js"></script>
+  <script src="firebase.js"></script>
+  <script src="data.js"></script>
+
+  <!-- Hilfsfunktionen (werden von allen Modulen genutzt) -->
+  <script src="js/utils.js"></script>
+
+  <!-- Schichtleiter-Module (Reihenfolge beachten: sl-report.js vor sl-aufgaben.js) -->
+  <script src="js/sl-report.js"></script>
+  <script src="js/sl-umsatz.js"></script>
+  <script src="js/sl-aufgaben.js"></script>
+  <script src="js/sl-regal.js"></script>
+  <script src="js/schichtleiter.js"></script>
+
+  <!-- Weitere Feature-Module -->
+  <script src="js/checklist.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/inventur.js"></script>
+  <script src="js/urlaub.js"></script>
+  <script src="js/hr.js"></script>
+  <script src="js/firebase-sync.js"></script>
+
+  <!-- Hauptanwendung (Kern-Navigation und globaler State) -->
+  <script src="app.js"></script>
+
+</body>
+</html>
