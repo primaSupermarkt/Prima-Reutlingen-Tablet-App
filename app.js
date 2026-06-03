@@ -1149,7 +1149,7 @@ initFirebase();
 
 
 // Kachel-Listener
-(function(){function bt(id,fn){var el=document.getElementById(id);if(el)el.addEventListener('click',fn);}
+(function(){var bt=function(id,fn){var el=document.getElementById(id);if(el)el.addEventListener('click',fn);}
 bt('tile-early',function(){goBereich('early');});
 bt('tile-mid',function(){goBereich('mid');});
 bt('tile-late',function(){goBereich('late');});
