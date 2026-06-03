@@ -34,7 +34,7 @@ function pwPinReset(){
 function renderAdmin(){
   const body=document.getElementById('admin-body');if(!body)return;body.innerHTML='';
 
-  function mkAdd(txt,fn){const b=document.createElement('button');b.className='a-add';b.textContent=txt;b.onclick=fn;body.appendChild(b);}
+  function mkAdd(txt,fn){const b=document.createElement('button');b.className='a-add';b.textContent=txt;b.addEventListener('click',fn);body.appendChild(b);}
 
   // Mitarbeiter
   mkSec('👥 Mitarbeiter');
@@ -383,7 +383,7 @@ function renderAdmin(){
 
   const cb=document.createElement('button');cb.className='a-add';cb.style.cssText='background:#dc2626;margin-top:6px;';
   cb.textContent='🗑️ Historie löschen';
-  cb.onclick=()=>{if(confirm('Gesamte Historie löschen?')){history=[];renderAdmin();}};body.appendChild(cb);
+  cb.addEventListener('click',function(){if(confirm('Gesamte Historie löschen?')){history=[];renderAdmin();lsSave('history',history);}});
 }
 
 // ═══════════════════════════════════════════
