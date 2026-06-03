@@ -1,12 +1,11 @@
 // ═══════════════════════════════════════════════════════════════
 // SERVICE-WORKER.JS
 // Ermöglicht Offline-Nutzung der App auf Tablets.
-// Cached alle wichtigen Dateien beim ersten Laden.
+// v4: Network-first Strategie – immer aktuelle Version laden
 // ═══════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'prima-app-v3';
+const CACHE_NAME = 'prima-app-v4';
 
-// Diese Dateien werden offline gespeichert
 const FILES_TO_CACHE = [
   './',
   './index.html',
@@ -16,32 +15,28 @@ const FILES_TO_CACHE = [
   './data.js',
   './app.js',
   './manifest.json',
-  // Hilfsfunktionen
-  './utils.js',
-  // Schichtleiter-Module
-  './sl-report.js',
-  './sl-umsatz.js',
-  './sl-aufgaben.js',
-  './sl-regal.js',
-  './schichtleiter.js',
-  // Feature-Module
-  './checklist.js',
-  './dashboard.js',
-  './admin.js',
-  './inventur.js',
-  './urlaub.js',
-  './hr.js',
-  './firebase-sync.js',
-  // Firebase SDK
+  './js/utils.js',
+  './js/sl-report.js',
+  './js/sl-umsatz.js',
+  './js/sl-aufgaben.js',
+  './js/sl-regal.js',
+  './js/schichtleiter.js',
+  './js/checklist.js',
+  './js/dashboard.js',
+  './js/admin.js',
+  './js/inventur.js',
+  './js/urlaub.js',
+  './js/hr.js',
+  './js/firebase-sync.js',
+  './js/gleitzeitkonto.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js'
 ];
 
-// Installation: Dateien cachen
+// Installation
 self.addEventListener('install', function(event) {
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
-      console.log('[SW] Dateien werden gecacht...');
       return cache.addAll(FILES_TO_CACHE).catch(function(err) {
         console.warn('[SW] Cache-Fehler (ignoriert):', err);
       });
@@ -58,7 +53,6 @@ self.addEventListener('activate', function(event) {
         cacheNames.filter(function(name) {
           return name !== CACHE_NAME;
         }).map(function(name) {
-          console.log('[SW] Alter Cache wird gelöscht:', name);
           return caches.delete(name);
         })
       );
@@ -67,20 +61,22 @@ self.addEventListener('activate', function(event) {
   self.clients.claim();
 });
 
-// Fetch: bei Offline aus Cache laden
+// Fetch: Network-first – immer aktuelle Version versuchen
 self.addEventListener('fetch', function(event) {
-  // Nur GET-Anfragen cachen
   if(event.request.method !== 'GET') return;
-  
+
   event.respondWith(
-    caches.match(event.request).then(function(cachedResponse) {
-      if(cachedResponse) {
-        return cachedResponse; // Aus Cache laden
-      }
-      // Netzwerk versuchen, bei Fehler Cache
-      return fetch(event.request).catch(function() {
-        // Wenn Netzwerk nicht verfügbar: Haupt-HTML zurückgeben
-        return caches.match('./index.html');
+    fetch(event.request).then(function(networkResponse) {
+      // Erfolg: Cache aktualisieren und Antwort zurückgeben
+      const responseClone = networkResponse.clone();
+      caches.open(CACHE_NAME).then(function(cache) {
+        cache.put(event.request, responseClone);
+      });
+      return networkResponse;
+    }).catch(function() {
+      // Offline: aus Cache laden
+      return caches.match(event.request).then(function(cached) {
+        return cached || caches.match('./index.html');
       });
     })
   );
