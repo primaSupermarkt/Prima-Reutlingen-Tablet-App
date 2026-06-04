@@ -1019,7 +1019,7 @@ function applyFirebaseData(key, val) {
       case 'clState':            if(val&&typeof val==='object') Object.assign(clState,val); break;
       case 'clState':            if(val&&typeof val==='object') { Object.assign(clState, val); } break;
       case 'DP':                 if(val&&val.mitarbeiter) DP.mitarbeiter=val.mitarbeiter; if(val&&val.weeks) DP.weeks=val.weeks; if(val&&val.budget!==undefined) DP.budget=val.budget; if(val&&val.activeWeek) DP.activeWeek=val.activeWeek; try{localStorage.setItem('prima_dp_v1',JSON.stringify(DP));}catch(e){} renderDP(); break;
-      case 'names':              if(val&&val.length){ names=val; lsSave('names',names); try{goToNamePicker();}catch(e){} } break;
+      case 'names':              if(val&&val.length){ names=val; lsSave('names',names); } break;
     }
     // Save to localStorage as cache
     try { localStorage.setItem('prima_'+key, JSON.stringify(val)); } catch(e) {}
