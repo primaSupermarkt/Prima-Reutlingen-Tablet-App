@@ -1014,7 +1014,18 @@ function applyFirebaseData(key, val) {
       case 'zeiterfassung':      zeiterfassung = val; break;
       case 'maProfiles':         maProfiles = val; break;
       case 'activeLogins':       activeLogins = val; break;
-      case 'rollenAufgaben':     if(val&&typeof val==='object') rollenAufgaben=val; break;
+      case 'rollenAufgaben':
+        if(val&&typeof val==='object') {
+          // Nur übernehmen wenn neue Rollen-Keys vorhanden – sonst Default behalten
+          const _newKeys=['early_bake_off','early_frueh_verkauf','mid_mittel','late_spaet_verkauf','late_spaet_service'];
+          const _hasNew=_newKeys.some(function(k){return (val[k]||[]).length>0;});
+          if(_hasNew) { rollenAufgaben=val; }
+          else {
+            // Firebase hat alte Daten → neue Default-Daten zurückschreiben
+            fbSave('rollenAufgaben', rollenAufgaben);
+          }
+        }
+        break;
       case 'clState':            if(val&&typeof val==='object') Object.assign(clState,val); break;
       case 'clState':            if(val&&typeof val==='object') Object.assign(clState,val); break;
       case 'clState':            if(val&&typeof val==='object') { Object.assign(clState, val); } break;
