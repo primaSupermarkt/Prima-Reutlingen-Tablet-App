@@ -1016,13 +1016,11 @@ function applyFirebaseData(key, val) {
       case 'activeLogins':       activeLogins = val; break;
       case 'rollenAufgaben':
         if(val&&typeof val==='object') {
-          // Nur übernehmen wenn neue Rollen-Keys vorhanden – sonst Default behalten
-          const _newKeys=['early_bake_off','early_frueh_verkauf','mid_mittel','late_spaet_verkauf','late_spaet_service'];
-          const _hasNew=_newKeys.some(function(k){return (val[k]||[]).length>0;});
-          if(_hasNew) { rollenAufgaben=val; }
+          // Version-Check: nur übernehmen wenn Version stimmt
+          if(val.__v === ROLLEN_VERSION) { rollenAufgaben=val; }
           else {
-            // Firebase hat alte Daten → neue Default-Daten zurückschreiben
-            fbSave('rollenAufgaben', rollenAufgaben);
+            // Firebase hat alte Version → Code-Default mit Versionsstempel zurückschreiben
+            setTimeout(function(){ fbSave('rollenAufgaben', rollenAufgaben); }, 1000);
           }
         }
         break;
@@ -1535,6 +1533,7 @@ const ROLLEN_DEF = {
 
 // Admin-erweiterbare Aufgaben pro Rolle
 // Abschnitte: 'start' | 'pause1' | 'pause2' | 'ende'
+const ROLLEN_VERSION = 'v2';
 let rollenAufgaben = lsLoad('rollenAufgaben', {
   // ─── FRÜHSCHICHT – BAKE-OFF ───
   'early_bake_off': [
@@ -1608,15 +1607,14 @@ let rollenAufgaben = lsLoad('rollenAufgaben', {
   ],
 });
 
-// Migration: falls localStorage noch alte Rollen-Keys enthält → neu befüllen
+// Versions-Migration: bei neuer ROLLEN_VERSION localStorage + Firebase zurücksetzen
 (function(){
-  const newKeys = ['early_bake_off','early_frueh_verkauf','mid_mittel','late_spaet_verkauf','late_spaet_service'];
-  const hasNew = newKeys.some(function(k){ return (rollenAufgaben[k]||[]).length > 0; });
-  const hasOld = ['early_kasse','early_regal','early_lager','mid_kasse','mid_regal','mid_lager','mid_springer','late_kasse','late_regal','late_lager'].some(function(k){ return (rollenAufgaben[k]||[]).length > 0; });
-  if(hasOld && !hasNew) {
-    // Alte Keys löschen, Default wiederherstellen
+  if(rollenAufgaben.__v !== ROLLEN_VERSION) {
+    // Versionsstempel auf Default-Objekt setzen
+    rollenAufgaben.__v = ROLLEN_VERSION;
     localStorage.removeItem('prima_rollenAufgaben');
-    location.reload();
+    lsSave('rollenAufgaben', rollenAufgaben);
+    // Firebase wird über den onSnapshot-Handler aktualisiert (setTimeout im case oben)
   }
 })();
 
