@@ -1510,153 +1510,90 @@ let tasks = [];
 // Rollen-Definition: welche Rollen gibt es in welcher Schicht
 const ROLLEN_DEF = {
   early: [
-    {id:'bake',    label:'🥐 Bake-Off',    icon:'🥐'},
-    {id:'kasse',   label:'🛒 Kasse',        icon:'🛒'},
-    {id:'regal',   label:'📦 Regale',       icon:'📦'},
-    {id:'lager',   label:'🏭 Lager',        icon:'🏭'},
+    {id:'bake_off',      label:'🥐 Bake-Off',          icon:'🥐'},
+    {id:'frueh_verkauf', label:'🛒 Frühschicht Verkauf', icon:'🛒'},
   ],
   mid: [
-    {id:'kasse',   label:'🛒 Kasse',        icon:'🛒'},
-    {id:'regal',   label:'📦 Regale',       icon:'📦'},
-    {id:'lager',   label:'🏭 Lager',        icon:'🏭'},
-    {id:'springer',label:'🔄 Springer',     icon:'🔄'},
+    {id:'mittel',        label:'☀️ Mittelschicht',       icon:'☀️'},
   ],
   late: [
-    {id:'kasse',   label:'🛒 Kasse',        icon:'🛒'},
-    {id:'regal',   label:'📦 Regale',       icon:'📦'},
-    {id:'lager',   label:'🏭 Lager',        icon:'🏭'},
+    {id:'spaet_verkauf', label:'🛒 Spätschicht Verkauf', icon:'🛒'},
+    {id:'spaet_service', label:'🧹 Spätschicht Service', icon:'🧹'},
   ]
 };
 
 // Admin-erweiterbare Aufgaben pro Rolle
 // Abschnitte: 'start' | 'pause1' | 'pause2' | 'ende'
 let rollenAufgaben = lsLoad('rollenAufgaben', {
-  // ─── FRÜH: BAKE-OFF ───
-  'early_bake': [
-    {id:'eb1', section:'start',  text:'Laden & Lager aufschließen, Alarmanlage aus', warn:'', ub:false},
-    {id:'eb2', section:'start',  text:'Frischwassertank kontrollieren & auffüllen',  warn:'', ub:false},
-    {id:'eb3', section:'start',  text:'Abwassertank leeren',                         warn:'', ub:false},
-    {id:'eb4', section:'start',  text:'Backofen einschalten & auf 180°C',            warn:'', ub:false},
-    {id:'eb5', section:'start',  text:'Teiglinge aus Kühlschrank auf Bleche',        warn:'', ub:false},
-    {id:'eb6', section:'start',  text:'Backwaren backen & einräumen',                warn:'special:backen', ub:false, special:'backen'},
-    {id:'eb7', section:'start',  text:'Temperaturkontrolle durchführen',             warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
-    {id:'eb8', section:'pause1', text:'Erste Pause (nach ca. 3h)',                   warn:'', ub:false, special:'pause'},
-    {id:'eb9', section:'pause1', text:'Kühlbereiche & MHD kontrollieren',            warn:'Abgelaufene Ware sofort entfernen', ub:false},
-    {id:'eb10',section:'pause1', text:'Regale kontrollieren & Ware bestücken',       warn:'', ub:true},
-    {id:'eb11',section:'pause2', text:'Zweite Pause (vor Übergabe)',                 warn:'', ub:false, special:'pause'},
-    {id:'eb12',section:'pause2', text:'Kassenbereich reinigen',                      warn:'', ub:true},
-    {id:'eb13',section:'pause2', text:'Regale für nächste Schicht vorbereiten',      warn:'', ub:true},
-    {id:'eb14',section:'ende',   text:'Schichtübergabe vorbereiten',                 warn:'', ub:true, special:'ub'},
+  // ─── FRÜHSCHICHT – BAKE-OFF ───
+  'early_bake_off': [
+    {id:'ebo_temp', section:'start',  text:'Temperaturkontrolle durchführen',          warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
+    {id:'ebo1',     section:'start',  text:'Backen vorbereiten & Backofen einschalten', warn:'special:backen', ub:false, special:'backen'},
+    {id:'ebo2',     section:'start',  text:'Frischetheke bestücken & kontrollieren',    warn:'', ub:false},
+    {id:'ebo3',     section:'start',  text:'Obst & Gemüse kontrollieren & auffüllen',   warn:'', ub:false},
+    {id:'ebo4',     section:'start',  text:'Kaffeemaschine einschalten & prüfen',        warn:'', ub:false},
+    {id:'ebo5',     section:'start',  text:'Bodenreinigung morgens durchführen',         warn:'', ub:false},
+    {id:'ebo6',     section:'pause1', text:'Erste Pause',                                warn:'', ub:false, special:'pause'},
+    {id:'ebo7',     section:'pause2', text:'Zweite Pause (vor Übergabe)',                warn:'', ub:false, special:'pause'},
+    {id:'ebo8',     section:'ende',   text:'Schichtübergabe vorbereiten',                warn:'', ub:true, special:'ub'},
   ],
-  // ─── FRÜH: KASSE ───
-  'early_kasse': [
-    {id:'early_kasse_temp', section:'start', text:'Temperaturkontrolle durchführen', warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
-    {id:'ek1', section:'start',  text:'Kassenbereich reinigen & kontrollieren',      warn:'', ub:false},
-    {id:'ek2', section:'start',  text:'Wechselgeld prüfen',                          warn:'', ub:false},
-    {id:'ek3', section:'start',  text:'Eingang & Schiebetüren kontrollieren',        warn:'Defekte sofort melden', ub:false},
-    {id:'ek4', section:'start',  text:'Besteck & Servietten an der Kasse prüfen',    warn:'Bei Mangel: Schichtleiter informieren', ub:false},
-    {id:'ek5', section:'pause1', text:'Erste Pause (nach ca. 3h)',                   warn:'', ub:false, special:'pause'},
-    {id:'ek6', section:'pause1', text:'Kaffeestation: Milch, Zucker, Rührstäbchen',  warn:'Bei Mangel: Schichtleiter', ub:false},
-    {id:'ek7', section:'pause2', text:'Zweite Pause (vor Übergabe)',                 warn:'', ub:false, special:'pause'},
-    {id:'ek8', section:'pause2', text:'Kassenbereich für nächste Schicht vorbereiten',warn:'', ub:true},
-    {id:'ek9', section:'ende',   text:'Zigaretteninventur durchführen',              warn:'Alle Lücken notieren & an Schichtleiter', ub:true},
-    {id:'ek10',section:'ende',   text:'Schichtübergabe vorbereiten',                 warn:'', ub:true, special:'ub'},
+  // ─── FRÜHSCHICHT – VERKAUF ───
+  'early_frueh_verkauf': [
+    {id:'efv_temp', section:'start',  text:'Temperaturkontrolle durchführen',          warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
+    {id:'efv1',     section:'start',  text:'Kasse öffnen & Wechselgeld prüfen',         warn:'', ub:false},
+    {id:'efv2',     section:'start',  text:'Warenverräumung durchführen',               warn:'', ub:false},
+    {id:'efv3',     section:'start',  text:'Kühlregale kontrollieren & auffüllen',      warn:'', ub:false},
+    {id:'efv4',     section:'start',  text:'Getränke auffüllen',                        warn:'', ub:false},
+    {id:'efv5',     section:'pause1', text:'Erste Pause',                               warn:'', ub:false, special:'pause'},
+    {id:'efv6',     section:'pause1', text:'Inventurkontrolle durchführen',             warn:'', ub:false, special:'inventur'},
+    {id:'efv7',     section:'pause2', text:'Zweite Pause (vor Übergabe)',               warn:'', ub:false, special:'pause'},
+    {id:'efv8',     section:'ende',   text:'Schichtübergabe vorbereiten',               warn:'', ub:true, special:'ub'},
   ],
-  // ─── FRÜH: REGALE ───
-  'early_regal': [
-    {id:'early_regal_temp', section:'start', text:'Temperaturkontrolle durchführen', warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
-    {id:'er1', section:'start',  text:'Regale kontrollieren & Ware bestücken',       warn:'', ub:false},
-    {id:'er2', section:'start',  text:'MHD-Kontrolle: Tiefkühlbereich',              warn:'Abgelaufene Ware sofort entfernen', ub:false},
-    {id:'er3', section:'start',  text:'Regalfotos aufnehmen',                        warn:'', ub:false, special:'regalfoto'},
-    {id:'er4', section:'pause1', text:'Erste Pause (nach ca. 3h)',                   warn:'', ub:false, special:'pause'},
-    {id:'er5', section:'pause1', text:'Aktionsware: Preisschilder kontrollieren',    warn:'', ub:false},
-    {id:'er6', section:'pause2', text:'Zweite Pause (vor Übergabe)',                 warn:'', ub:false, special:'pause'},
-    {id:'er7', section:'pause2', text:'Regale vollständig bestückt',                 warn:'', ub:true},
-    {id:'er8', section:'ende',   text:'Schichtübergabe vorbereiten',                 warn:'', ub:true, special:'ub'},
+  // ─── MITTELSCHICHT ───
+  'mid_mittel': [
+    {id:'mm_temp',  section:'start',  text:'Temperaturkontrolle durchführen',          warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
+    {id:'mm1',      section:'start',  text:'Regallücken schließen',                    warn:'', ub:false},
+    {id:'mm2',      section:'start',  text:'Lagerordnung herstellen',                  warn:'', ub:false},
+    {id:'mm3',      section:'pause1', text:'Erste Pause',                              warn:'', ub:false, special:'pause'},
+    {id:'mm4',      section:'pause1', text:'Leergut bearbeiten',                       warn:'', ub:false},
+    {id:'mm5',      section:'pause1', text:'Sonderaufgaben erledigen',                 warn:'', ub:false},
+    {id:'mm5b',     section:'pause1', text:'Inventurkontrolle durchführen',             warn:'', ub:false, special:'inventur'},
+    {id:'mm6',      section:'pause2', text:'Zweite Pause (vor Übergabe)',              warn:'', ub:false, special:'pause'},
+    {id:'mm7',      section:'pause2', text:'Fotoaufgaben (Regalfotos)',                warn:'', ub:false, special:'regalfoto'},
+    {id:'mm8',      section:'ende',   text:'Schichtübergabe vorbereiten',              warn:'', ub:true, special:'ub'},
   ],
-  // ─── FRÜH: LAGER ───
-  'early_lager': [
-    {id:'early_lager_temp', section:'start', text:'Temperaturkontrolle durchführen', warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
-    {id:'el1', section:'start',  text:'Lager kontrollieren & aufräumen',             warn:'', ub:false},
-    {id:'el2', section:'start',  text:'Warenlieferung prüfen & einräumen',           warn:'', ub:false},
-    {id:'el3', section:'pause1', text:'Erste Pause (nach ca. 3h)',                   warn:'', ub:false, special:'pause'},
-    {id:'el4', section:'pause1', text:'Kühlkette kontrollieren',                     warn:'', ub:false},
-    {id:'el5', section:'pause2', text:'Zweite Pause (vor Übergabe)',                 warn:'', ub:false, special:'pause'},
-    {id:'el6', section:'pause2', text:'Lager für nächste Schicht vorbereiten',       warn:'', ub:true},
-    {id:'el7', section:'ende',   text:'Schichtübergabe vorbereiten',                 warn:'', ub:true, special:'ub'},
+  // ─── SPÄTSCHICHT – VERKAUF ───
+  'late_spaet_verkauf': [
+    {id:'lsv_temp', section:'start',  text:'Temperaturkontrolle durchführen',          warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
+    {id:'lsv1',     section:'start',  text:'Kasse übernehmen & Wechselgeld zählen',    warn:'', ub:false},
+    {id:'lsv2',     section:'start',  text:'Regale auffüllen',                         warn:'', ub:false},
+    {id:'lsv3',     section:'pause1', text:'Erste Pause',                              warn:'', ub:false, special:'pause'},
+    {id:'lsv4',     section:'pause1', text:'Kühlkontrolle durchführen',                warn:'', ub:false},
+    {id:'lsv5',     section:'pause2', text:'Zweite Pause (vor Übergabe)',              warn:'', ub:false, special:'pause'},
+    {id:'lsv6',     section:'pause2', text:'Tabakkontrolle durchführen',               warn:'Alle Lücken notieren', ub:true},
+    {id:'lsv7',     section:'ende',   text:'Kasse abschließen & Kassenabrechnung',     warn:'', ub:true},
+    {id:'lsv8',     section:'ende',   text:'Schichtübergabe vorbereiten',              warn:'', ub:true, special:'ub'},
   ],
-  // ─── MITTE: KASSE ───
-  'mid_kasse': [
-    {id:'mid_kasse_temp', section:'start', text:'Temperaturkontrolle durchführen', warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
-    {id:'mk1', section:'start',  text:'Kassenbereich übernehmen & kontrollieren',    warn:'', ub:false},
-    {id:'mk2', section:'start',  text:'Kaffeestation auffüllen',                     warn:'', ub:false},
-    {id:'mk3', section:'start',  text:'Einkaufstüten alle Sorten prüfen',            warn:'Fehlende Sorten sofort melden', ub:false},
-    {id:'mk4', section:'pause1', text:'Erste Pause',                                 warn:'', ub:false, special:'pause'},
-    {id:'mk5', section:'pause1', text:'Kassenbereich reinigen',                      warn:'', ub:false},
-    {id:'mk6', section:'pause2', text:'Zweite Pause (vor Übergabe)',                 warn:'', ub:false, special:'pause'},
-    {id:'mk7', section:'pause2', text:'Verbrauchsmaterial prüfen & auffüllen',       warn:'Bei Mangel: Schichtleiter', ub:true},
-    {id:'mk8', section:'ende',   text:'Schichtübergabe vorbereiten',                 warn:'', ub:true, special:'ub'},
+  // ─── SPÄTSCHICHT – SERVICE ───
+  'late_spaet_service': [
+    {id:'lss_temp', section:'start',  text:'Temperaturkontrolle durchführen',          warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
+    {id:'lss1',     section:'start',  text:'Bodenmaschine vorbereiten & starten',      warn:'', ub:false},
+    {id:'lss2',     section:'pause1', text:'Erste Pause',                              warn:'', ub:false, special:'pause'},
+    {id:'lss3',     section:'pause1', text:'Glasflächen reinigen',                     warn:'', ub:false},
+    {id:'lss4',     section:'pause1', text:'Müll entsorgen',                           warn:'', ub:false},
+    {id:'lss5',     section:'pause2', text:'Zweite Pause (vor Übergabe)',              warn:'', ub:false, special:'pause'},
+    {id:'lss6',     section:'pause2', text:'Reinigung abschließen',                    warn:'', ub:true},
+    {id:'lss7',     section:'ende',   text:'Tagesabschlusskontrolle durchführen',      warn:'', ub:true},
+    {id:'lss8',     section:'ende',   text:'Schichtübergabe vorbereiten',              warn:'', ub:true, special:'ub'},
   ],
-  // ─── MITTE: REGALE ───
-  'mid_regal': [
-    {id:'mid_regal_temp', section:'start', text:'Temperaturkontrolle durchführen', warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
-    {id:'mr1', section:'start',  text:'Regalpflege: Regale kontrollieren & bestücken', warn:'', ub:false},
-    {id:'mr2', section:'start',  text:'Regalfotos aufnehmen',                        warn:'', ub:false, special:'regalfoto'},
-    {id:'mr3', section:'pause1', text:'Erste Pause',                                 warn:'', ub:false, special:'pause'},
-    {id:'mr4', section:'pause1', text:'MHD-Kontrolle durchführen',                   warn:'Abgelaufene Ware entfernen', ub:false},
-    {id:'mr5', section:'pause2', text:'Zweite Pause (vor Übergabe)',                 warn:'', ub:false, special:'pause'},
-    {id:'mr6', section:'pause2', text:'Regale vollständig für Spätschicht',          warn:'', ub:true},
-    {id:'mr7', section:'ende',   text:'Schichtübergabe vorbereiten',                 warn:'', ub:true, special:'ub'},
-  ],
-  // ─── MITTE: LAGER ───
-  'mid_lager': [
-    {id:'mid_lager_temp', section:'start', text:'Temperaturkontrolle durchführen', warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
-    {id:'mla1',section:'start',  text:'Lager übernehmen & kontrollieren',            warn:'', ub:false},
-    {id:'mla2',section:'start',  text:'Wareneingang verarbeiten',                    warn:'', ub:false},
-    {id:'mla3',section:'pause1', text:'Erste Pause',                                 warn:'', ub:false, special:'pause'},
-    {id:'mla4',section:'pause2', text:'Zweite Pause (vor Übergabe)',                 warn:'', ub:false, special:'pause'},
-    {id:'mla5',section:'pause2', text:'Lager aufräumen & für Spätschicht vorbereiten',warn:'', ub:true},
-    {id:'mla6',section:'ende',   text:'Schichtübergabe vorbereiten',                 warn:'', ub:true, special:'ub'},
-  ],
-  // ─── MITTE: SPRINGER ───
-  'mid_springer': [
-    {id:'mid_springer_temp', section:'start', text:'Temperaturkontrolle durchführen', warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
-    {id:'ms1', section:'start',  text:'Bereich übernehmen – Engpässe abdecken',      warn:'', ub:false},
-    {id:'ms2', section:'pause1', text:'Erste Pause',                                 warn:'', ub:false, special:'pause'},
-    {id:'ms3', section:'pause2', text:'Zweite Pause (vor Übergabe)',                 warn:'', ub:false, special:'pause'},
-    {id:'ms4', section:'ende',   text:'Schichtübergabe vorbereiten',                 warn:'', ub:true, special:'ub'},
-  ],
-  // ─── SPÄT: KASSE ───
-  'late_kasse': [
-    {id:'late_kasse_temp', section:'start', text:'Temperaturkontrolle durchführen', warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
-    {id:'sk1', section:'start',  text:'Kassenbereich übernehmen',                    warn:'', ub:false},
-    {id:'sk2', section:'start',  text:'Wechselgeld zählen & kontrollieren',          warn:'', ub:false},
-    {id:'sk3', section:'pause1', text:'Erste Pause',                                 warn:'', ub:false, special:'pause'},
-    {id:'sk4', section:'pause1', text:'Kassenbereich reinigen',                      warn:'', ub:false},
-    {id:'sk5', section:'pause2', text:'Zweite Pause (vor Übergabe)',                 warn:'', ub:false, special:'pause'},
-    {id:'sk6', section:'pause2', text:'Zigaretteninventur',                          warn:'Alle Lücken notieren', ub:true},
-    {id:'sk7', section:'ende',   text:'Kasse abschließen & Kassenabrechnung',        warn:'', ub:true},
-    {id:'sk8', section:'ende',   text:'Schichtübergabe vorbereiten',                 warn:'', ub:true, special:'ub'},
-  ],
-  // ─── SPÄT: REGALE ───
-  'late_regal': [
-    {id:'late_regal_temp', section:'start', text:'Temperaturkontrolle durchführen', warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
-    {id:'sr1', section:'start',  text:'Regale kontrollieren & auffüllen',            warn:'', ub:false},
-    {id:'sr2', section:'pause1', text:'Erste Pause',                                 warn:'', ub:false, special:'pause'},
-    {id:'sr3', section:'pause1', text:'MHD-Kontrolle Tiefkühl & Frische',            warn:'Abgelaufene Ware entfernen', ub:false},
-    {id:'sr4', section:'pause2', text:'Zweite Pause (vor Übergabe)',                 warn:'', ub:false, special:'pause'},
-    {id:'sr5', section:'pause2', text:'Regale für Ladenschluss vorbereiten',         warn:'', ub:true},
-    {id:'sr6', section:'ende',   text:'Leergut & Lagerfläche aufräumen',             warn:'', ub:false},
-    {id:'sr7', section:'ende',   text:'Schichtübergabe vorbereiten',                 warn:'', ub:true, special:'ub'},
-  ],
-  // ─── SPÄT: LAGER ───
-  'late_lager': [
-    {id:'late_lager_temp', section:'start', text:'Temperaturkontrolle durchführen', warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
-    {id:'sl1', section:'start',  text:'Lager übernehmen & kontrollieren',            warn:'', ub:false},
-    {id:'sl2', section:'pause1', text:'Erste Pause',                                 warn:'', ub:false, special:'pause'},
-    {id:'sl3', section:'pause2', text:'Zweite Pause (vor Übergabe)',                 warn:'', ub:false, special:'pause'},
-    {id:'sl4', section:'pause2', text:'Lager aufräumen & abschließen',               warn:'', ub:true},
-    {id:'sl5', section:'ende',   text:'Schichtübergabe vorbereiten',                 warn:'', ub:true, special:'ub'},
+  // ─── SCHICHTLEITER ───
+  'late_sl': [
+    {id:'sl_temp',  section:'start',  text:'Temperaturkontrolle prüfen & abhaken',     warn:'Alle Schichten kontrollieren', ub:true, special:'temp', oncePerDay:true},
+    {id:'sl_1',     section:'start',  text:'Checklisten-Status aller Schichten prüfen',warn:'', ub:false},
+    {id:'sl_2',     section:'pause1', text:'Erste Pause',                              warn:'', ub:false, special:'pause'},
+    {id:'sl_3',     section:'pause2', text:'Zweite Pause (vor Übergabe)',              warn:'', ub:false, special:'pause'},
+    {id:'sl_4',     section:'ende',   text:'Tagesabschluss & Kassenabrechnung',        warn:'', ub:true},
+    {id:'sl_5',     section:'ende',   text:'Schichtübergabe vorbereiten',              warn:'', ub:true, special:'ub'},
   ],
 });
 
@@ -1849,11 +1786,17 @@ function goBereich(s){
     container.innerHTML = '';
     const rollen = ROLLEN_DEF[s] || [];
     const farben = {
-      bake:    {bg:'#fff7ed', border:'#b45309', icon:'🥐'},
-      kasse:   {bg:'#eff6ff', border:'#1d4ed8', icon:'🛒'},
-      regal:   {bg:'#f0fdf4', border:'#15803d', icon:'📦'},
-      lager:   {bg:'#fafafa', border:'#374151', icon:'🏭'},
-      springer:{bg:'#fef3c7', border:'#d97706', icon:'🔄'},
+      bake:          {bg:'#fff7ed', border:'#b45309', icon:'🥐'},
+      kasse:         {bg:'#eff6ff', border:'#1d4ed8', icon:'🛒'},
+      regal:         {bg:'#f0fdf4', border:'#15803d', icon:'📦'},
+      lager:         {bg:'#fafafa', border:'#374151', icon:'🏭'},
+      springer:      {bg:'#fef3c7', border:'#d97706', icon:'🔄'},
+      bake_off:      {bg:'#fff7ed', border:'#b45309', icon:'🥐'},
+      frueh_verkauf: {bg:'#eff6ff', border:'#1d4ed8', icon:'🛒'},
+      mittel:        {bg:'#f0fdf4', border:'#15803d', icon:'☀️'},
+      spaet_verkauf: {bg:'#eff6ff', border:'#1d4ed8', icon:'🛒'},
+      spaet_service: {bg:'#f5f0ff', border:'#7c3aed', icon:'🧹'},
+      sl:            {bg:'#fffbeb', border:'#d97706', icon:'⭐'},
     };
     rollen.forEach(function(r){
       const f = farben[r.id] || {bg:'#f5f5f5', border:'#888', icon:'⭐'};
@@ -1884,7 +1827,7 @@ function goName(startTime){
 function setRolle(rolle){
   try {
     st.rolle = rolle;
-    st.bereich = (rolle==='bake')?'bake':'laden';
+    st.bereich = (rolle==='bake'||rolle==='bake_off')?'bake':'laden';
     goToNamePicker();
   } catch(e) { console.error('setRolle error:', e); }
 }
@@ -2156,7 +2099,7 @@ function startCL(name){
   const openUB=ubergaben.find(u=>u.status==='open');
   const ubBanner=document.getElementById('ub-open-banner'); if(ubBanner) ubBanner.style.display=openUB?'flex':'none';
   const clHdr=document.getElementById('cl-hdr'); if(clHdr) clHdr.style.background=st.bereich==='bake'?'#b45309':'var(--black)';
-  const rollenLabels = {bake:'🥐 Bake-Off',kasse:'🛒 Kasse',regal:'📦 Regale',lager:'🏭 Lager',springer:'🔄 Springer'};
+  const rollenLabels = {bake:'🥐 Bake-Off',kasse:'🛒 Kasse',regal:'📦 Regale',lager:'🏭 Lager',springer:'🔄 Springer',bake_off:'🥐 Bake-Off',frueh_verkauf:'🛒 Frühschicht Verkauf',mittel:'☀️ Mittelschicht',spaet_verkauf:'🛒 Spätschicht Verkauf',spaet_service:'🧹 Spätschicht Service',sl:'⭐ Schichtleiter'};
   $text('cl-lbl', slbls[st.schicht]+' · '+(rollenLabels[st.rolle]||st.rolle||''));
   go('s-cl');
 }
@@ -4211,17 +4154,11 @@ function renderAdmin(){
   // Aufgaben aus rollenAufgaben anzeigen
   mkSec('✅ Aufgaben pro Rolle');
   const rolLabels2={
-    'early_bake':'🥐 Frühschicht – Bake-Off',
-    'early_kasse':'🛒 Frühschicht – Kasse',
-    'early_regal':'📦 Frühschicht – Regale',
-    'early_lager':'🏭 Frühschicht – Lager',
-    'mid_kasse':'🛒 Mittelschicht – Kasse',
-    'mid_regal':'📦 Mittelschicht – Regale',
-    'mid_lager':'🏭 Mittelschicht – Lager',
-    'mid_springer':'🔄 Mittelschicht – Springer',
-    'late_kasse':'🛒 Spätschicht – Kasse',
-    'late_regal':'📦 Spätschicht – Regale',
-    'late_lager':'🏭 Spätschicht – Lager',
+    'early_bake_off':      '🥐 Frühschicht – Bake-Off',
+    'early_frueh_verkauf': '🛒 Frühschicht – Verkauf',
+    'mid_mittel':          '☀️ Mittelschicht',
+    'late_spaet_verkauf':  '🛒 Spätschicht – Verkauf',
+    'late_spaet_service':  '🧹 Spätschicht – Service',
     'sl':'👔 Schichtleiter'
   };
   const secLabels2={start:'Schichtbeginn',pause1:'Pause 1',pause2:'Pause 2',ende:'Schichtende'};
@@ -4711,11 +4648,12 @@ function openRolleEdit(key) {
   const tasks = JSON.parse(JSON.stringify(rollenAufgaben[key]||[]));
   var renderEdit = function(){
     box.innerHTML='';
-    const h1=document.createElement('div');h1.style.cssText='font-size:16px;font-weight:800;margin-bottom:12px;';h1.textContent='Aufgaben: '+key;box.appendChild(h1);
+    const _rlbls={'early_bake_off':'🥐 Frühschicht – Bake-Off','early_frueh_verkauf':'🛒 Frühschicht – Verkauf','mid_mittel':'☀️ Mittelschicht','late_spaet_verkauf':'🛒 Spätschicht – Verkauf','late_spaet_service':'🧹 Spätschicht – Service','sl':'👔 Schichtleiter'};
+    const h1=document.createElement('div');h1.style.cssText='font-size:16px;font-weight:800;margin-bottom:12px;';h1.textContent='Aufgaben: '+(_rlbls[key]||key);box.appendChild(h1);
     ['start','pause1','pause2','ende'].forEach(function(sec){
       const secLabel={start:'Schichtbeginn',pause1:'Pause 1',pause2:'Pause 2',ende:'Schichtende'};
       const secDiv=document.createElement('div');secDiv.style.cssText='font-size:11px;font-weight:700;text-transform:uppercase;color:#888;margin:10px 0 4px;';secDiv.textContent=secLabel[sec];box.appendChild(secDiv);
-      (rollenAufgaben[currentEditRolle]||[]).filter(function(t){return t.section===sec;}).forEach(function(t){
+      tasks.filter(function(t){return t.section===sec;}).forEach(function(t){
         const row=document.createElement('div');row.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:4px;';
         const inp=document.createElement('input');inp.type='text';inp.value=t.text;inp.style.cssText='flex:1;border:1px solid #e0e0e0;border-radius:7px;padding:7px;font-size:12px;font-family:inherit;outline:none;';
         inp.addEventListener('input',function(){t.text=this.value;});
@@ -5212,8 +5150,12 @@ function saveUmsatz() {
   umsatzData.push({date: datum, betrag, kunden});
   umsatzData.sort((a,b) => b.date.localeCompare(a.date));
   lsSave('umsatzData', umsatzData);
+  fbSave('umsatzData', umsatzData);
   $set('uz-betrag', 'value', '');
   $set('uz-kunden', 'value', '');
+  // Speichern-Button zurücksetzen
+  const saveBtnReset=document.querySelector('#sl-tab-umsatz button');
+  if(saveBtnReset){saveBtnReset.style.background='#0f3460';saveBtnReset.textContent='💾 Speichern';}
   renderUmsatz();
 }
 
@@ -5283,7 +5225,13 @@ function renderUmsatz() {
             $set('uz-betrag', 'value', entry.betrag);
             $set('uz-kunden', 'value', entry.kunden);
             const umsEl=document.getElementById('sl-tab-umsatz');if(umsEl)umsEl.scrollTop=0;
-            setTimeout(function(){ const fEl=document.getElementById('uz-betrag');if(fEl)fEl.focus(); }, 100);
+            // Visuelles Feedback: Speichern-Button hervorheben
+            const saveBtn=document.querySelector('#sl-tab-umsatz button');
+            if(saveBtn){saveBtn.style.background='#16a34a';saveBtn.textContent='💾 Änderung speichern';}
+            setTimeout(function(){
+              const fEl=document.getElementById('uz-betrag');
+              if(fEl){fEl.focus();fEl.select();}
+            }, 150);
           };
         })(u);
         row.appendChild(info);
@@ -6073,13 +6021,18 @@ function updateSLTask(){
 function openTempControl() {
   var todayStr = new Date().toISOString().slice(0,10);
   var bereitsHeute = tempHistory.some(function(h){ return (h.date||h.datum)===todayStr; });
+  // Task in clState als erledigt markieren falls heute schon erfasst
   if(bereitsHeute) {
     var entry = tempHistory.slice().reverse().find(function(h){ return (h.date||h.datum)===todayStr; });
-    var wer = entry&&entry.ma ? ' von '+entry.ma : '';
-    var wann = entry&&entry.ts ? ' um '+(entry.ts.slice(11,16)||entry.ts.slice(0,5))+' Uhr' : '';
-    alert('\u2705 Temperaturkontrolle heute bereits erfasst'+wer+wann+'. Eine erneute Erfassung ist erst morgen m\u00f6glich.');
-    return;
+    var tempTask = getMyTasks().find(function(t){ return t.special==='temp'; });
+    if(tempTask && !clState[tempTask.id]) {
+      var wer = entry&&entry.ma ? entry.ma : '';
+      var wann = entry&&entry.ts ? (entry.ts.slice(11,16)||'') : '';
+      clState[tempTask.id] = {status:'done', who:wer, ts:wann};
+      lsSave('clState', clState);
+    }
   }
+  // Immer die Erfassungsmaske öffnen (renderTempBody zeigt Hinweis wenn schon erledigt)
   tempCurrentSession = {};
   renderTempBody();
   go('s-temp');
@@ -6266,6 +6219,7 @@ function submitTemp() {
     date: today,
     ts: new Date().toLocaleString('de-DE'),
     ma: st.name,
+    schicht: st.schicht||'',
     readings
   };
   tempHistory.push(entry);
