@@ -383,6 +383,14 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:var(
   <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
 </div>
 
+<!-- ══ SCHICHTÜBERGABE QUALITÄTSKONTROLLE ══ -->
+<div class="screen" id="s-ub-foto">
+  <div class="hdr" style="background:#0f3460;"><button class="back" onclick="go('s-cl')">‹ Zurück</button><div class="hdr-sub">📸 Qualitätskontrolle</div></div>
+  <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 20px;" id="ub-foto-body"></div>
+  <button id="ub-foto-submit-btn" onclick="submitUbergabeFoto()" style="margin:0 14px 10px;background:#0f3460;color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;width:calc(100% - 28px);opacity:0.4;" disabled>✅ Übergabe abschicken</button>
+  <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
+</div>
+
 <!-- ══ SCHICHTÜBERGABE ANNEHMEN ══ -->
 <div class="screen" id="s-ub-take">
   <div class="hdr" style="background:#0f3460;"><button class="back" onclick="go('s-cl')">‹ Zurück</button><div class="hdr-sub">🔄 Übergabe annehmen</div></div>
@@ -495,6 +503,16 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:var(
       <button onclick="confirmSlush()" style="width:100%;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">✅ Reinigung bestätigen</button>
     </div>
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">📅 Reinigungshistorie</div>
+    <div style="background:#fff;border-radius:12px;padding:13px;box-shadow:0 2px 7px rgba(0,0,0,.07);margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;">📄 PDF-Export für Lebensmittelkontrolle</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div><label style="font-size:10px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Von</label>
+          <input type="date" id="slush-pdf-von" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:8px;font-size:12px;font-family:inherit;box-sizing:border-box;"></div>
+        <div><label style="font-size:10px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Bis</label>
+          <input type="date" id="slush-pdf-bis" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:8px;font-size:12px;font-family:inherit;box-sizing:border-box;"></div>
+      </div>
+      <button onclick="exportSlushPDF()" style="width:100%;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">📄 PDF erstellen & drucken</button>
+    </div>
     <div id="slush-history-list"></div>
   </div>
   <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH · Mitarbeiter-App</div>
@@ -537,6 +555,7 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:var(
 <div class="screen" id="s-brett">
   <div class="hdr" style="background:#1a1a1a;"><button class="back" onclick="go('s-home')">‹ Zurück</button><div class="hdr-sub">📌 Schwarzes Brett</div></div>
   <div style="flex:1;overflow-y:auto;padding:12px 14px 20px;" id="brett-body"></div>
+
   <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH</div>
 </div>
 
@@ -661,7 +680,7 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:var(
     <button onclick="openHR()" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">👥 HR</button>
     <button id="slt-aufg" onclick="slTab('aufg')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">&#128204; Aufgaben</button>
     <button id="slt-regal" onclick="slTab('regal')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">&#128247; Regale</button>
-    <button id="slt-brett" onclick="openBrett()" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">&#128204; Brett</button>
+    <button id="slt-brett" onclick="slTab('brett')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">&#128204; Brett</button>
   </div>
   <div id="sl-tab-dash" class="sl-body" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px 24px;"></div>
   <div id="sl-tab-umsatz" style="display:none;flex:1;overflow-y:auto;padding:12px 16px 24px;">
@@ -692,6 +711,9 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:var(
   </div>
   <div id="sl-tab-regal" style="display:none;flex:1;overflow-y:auto;padding:12px 16px 24px;">
     <div id="sl-regal-pane"></div>
+  </div>
+  <div id="sl-tab-brett" style="display:none;flex:1;overflow-y:auto;padding:12px 16px 24px;">
+    <div id="sl-brett-pane"></div>
   </div>
   </div>
   <div class="bottom-bar">Prima Supermarkt Reutlingen GmbH · Mitarbeiter-App</div>
@@ -1496,6 +1518,7 @@ const REGAL_GRUPPEN = [
 // ── WOCHENAUFGABEN ────────────────────────────────────────────────────────────────────────
 
 // weeklyTasks: [{id, text, days:[0-6 (0=So,1=Mo...)], schicht:'early'|'mid'|'late'|'all', bereich:'bake'|'laden'|'all', warn, special}]
+localStorage.removeItem('prima_weeklyTasks');
 let weeklyTasks = lsLoad('weeklyTasks', [
   {id:'wt1', text:'Blumen wässern', days:[2,3,6], schicht:'early', bereich:'laden', warn:'', section:'Wochenaufgabe', time:'08:00'},
   {id:'wt2', text:'Slushmaschine reinigen', days:[3], schicht:'early', bereich:'bake', warn:'Mittwoch Frühschicht – vor 09:00 Uhr', section:'Wochenaufgabe', special:'slush', time:'07:00'},
@@ -1692,6 +1715,7 @@ function resumeCL(name){
   // PIN-Abfrage bevor Checkliste geöffnet wird
   showNamePinOverlay(name, function(){
     st.name=name;
+    window._slLoggedIn=false; // Mitarbeiter-Login: SL-Rechte entfernen
     const login=activeLogins[name]||{};
     st.schicht=login.schicht||'mid';
     st.rolle=login.rolle||'kasse';
@@ -2101,11 +2125,17 @@ function startCL(name){
   // Der Stand gehört dem Mitarbeiter und bleibt bis er explizit gelöscht wird
   clState = lsLoad('clState', {});
   updateBadges();
-  // Show Schwarzes Brett if unconfirmed messages
-  const unconfMsgs=schwarzesBrett.filter(m=>m.aktiv&&!(m.bestaetigt&&m.bestaetigt.includes(st.name)));
+  // Show Schwarzes Brett if unconfirmed messages (nur zeitlich aktive)
+  const _todayBrett = new Date().toISOString().slice(0,10);
+  const unconfMsgs=schwarzesBrett.filter(function(m){
+    if(!m.aktiv) return false;
+    if(m.vonDatum && _todayBrett < m.vonDatum) return false;
+    if(m.bisDatum && _todayBrett > m.bisDatum) return false;
+    return !(m.bestaetigt && m.bestaetigt.includes(st.name));
+  });
   if(unconfMsgs.length){
-    const msg=unconfMsgs.map(m=>m.text).join('\n\n');
-    alert('Schwarzes Brett:\n\n'+msg+'\n\nBitte unter Schwarzes Brett bestaetigen.');
+    // Statt alert: direkt zum Brett navigieren
+    setTimeout(function(){ openBrett(); }, 400);
   }
   // Restore any weekly task completions for today
   const todayKey=new Date().toISOString().slice(0,10);
@@ -3106,8 +3136,8 @@ function getUBItems(){
 }
 
 function startUbergabe(){
-  // Direkt zur Übergabe (Zeiterfassung läuft über Stempeluhr)
-  doUbergabePrep();
+  // Zuerst Qualitätskontrolle (Fotos + Checkliste), dann bestehende Übergabe
+  openUbergabeFoto();
 }
 
 function showEndTimeDialog() {
@@ -3264,6 +3294,10 @@ function submitUbergabe(){
 
 function finishSubmitUbergabe(notiz){
   const items = getUBItems().map(function(t){ return {text:t.text, status:ubPrepState[t.text]||'nok'}; });
+  // Fotos & Qualitätscheckliste aus Foto-Session anhängen
+  const ubFotos = (window._pendingUbFotos && window._pendingUbFotos.ma === st.name) ? window._pendingUbFotos : null;
+  if(window._pendingUbFotos) { window._pendingUbFotos = null; }
+
   const ub = {
     id: 'ub'+Date.now(),
     ts: new Date().toLocaleString('de-DE'),
@@ -3274,7 +3308,13 @@ function finishSubmitUbergabe(notiz){
     items: items,
     infoText: notiz,
     status: 'open',
-    rejectedItems: []
+    rejectedItems: [],
+    qualitaet: ubFotos ? {
+      fotos: ubFotos.fotos,
+      checks: ubFotos.checks,
+      ts: ubFotos.ts,
+      ma: ubFotos.ma
+    } : null
   };
   ubergaben.push(ub);
   lsSave('ubergaben', ubergaben);
@@ -3323,6 +3363,55 @@ function goUbergabeAnnehmen(){
   const body = $id('ub-take-body');
   if(body) body.innerHTML = '';
   if(body) {
+    // ── Qualitätsfotos der abgebenden Schicht anzeigen ──
+    if(ub.qualitaet && ub.qualitaet.fotos) {
+      const q = ub.qualitaet;
+      const qSec = document.createElement('div');
+      qSec.style.cssText = 'font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#0f3460;margin:0 0 8px;';
+      qSec.textContent = '📸 Fotos der abgebenden Schicht';
+      body.appendChild(qSec);
+      const fotoGrid = document.createElement('div');
+      fotoGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;';
+      const fotoLabels = {lager:'🏭 Lager', spuel:'🚿 Spülbecken', kasse:'🛒 Kasse'};
+      Object.keys(q.fotos).forEach(function(k) {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'text-align:center;';
+        const img = document.createElement('img');
+        img.src = q.fotos[k];
+        img.style.cssText = 'width:100%;height:80px;object-fit:cover;border-radius:8px;border:2px solid #e2e8f0;cursor:pointer;';
+        img.onclick = function() { openUbFotoFullscreen(q.fotos[k], fotoLabels[k]||k); };
+        const lbl = document.createElement('div');
+        lbl.style.cssText = 'font-size:9px;color:#666;margin-top:3px;font-weight:600;';
+        lbl.textContent = fotoLabels[k]||k;
+        wrap.appendChild(img); wrap.appendChild(lbl);
+        fotoGrid.appendChild(wrap);
+      });
+      body.appendChild(fotoGrid);
+
+      // Qualitätscheckliste
+      const checkSec = document.createElement('div');
+      checkSec.style.cssText = 'font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#0f3460;margin-bottom:8px;';
+      checkSec.textContent = '✅ Qualitätscheckliste';
+      body.appendChild(checkSec);
+      const checkCard = document.createElement('div');
+      checkCard.style.cssText = 'background:#f8fffe;border:1.5px solid #d1fae5;border-radius:12px;padding:12px;margin-bottom:14px;';
+      UB_CHECKS.forEach(function(c2) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0fdf4;';
+        const ok = q.checks && q.checks[c2.id];
+        row.innerHTML = '<div style="width:20px;height:20px;border-radius:5px;flex-shrink:0;background:' + (ok ? '#16a34a' : '#fecaca') + ';display:flex;align-items:center;justify-content:center;">' +
+          '<span style="color:#fff;font-size:11px;font-weight:900;">' + (ok ? '✓' : '✗') + '</span></div>' +
+          '<div style="font-size:13px;color:' + (ok ? '#166534' : '#dc2626') + ';font-weight:' + (ok ? '600' : '400') + ';">' + c2.text + '</div>';
+        checkCard.appendChild(row);
+      });
+      body.appendChild(checkCard);
+    }
+
+    // ── Bestehende Übergabepunkte ──
+    const ubSec = document.createElement('div');
+    ubSec.style.cssText = 'font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#0f3460;margin-bottom:8px;';
+    ubSec.textContent = '📋 Übergabepunkte';
+    body.appendChild(ubSec);
     ub.items.forEach(function(item){
       const row=document.createElement('div');
       row.className='ub-row'+(item.status==='ok'?' ok':' nok');
@@ -3445,6 +3534,200 @@ function rejectUbergabe(){
   cancelBtn.addEventListener('click', function(){ document.body.removeChild(overlay); });
   card.appendChild(confirmBtn); card.appendChild(cancelBtn);
   overlay.appendChild(card); document.body.appendChild(overlay);
+}
+
+// ═══════════════════════════════════════════
+// SCHICHTÜBERGABE QUALITÄTSKONTROLLE (NEU)
+// ═══════════════════════════════════════════
+
+const UB_FOTOS = [
+  {id:'lager',   label:'🏭 Lager',              hint:'Gesamtübersicht Lagerraum'},
+  {id:'spuel',   label:'🚿 Spülbecken',          hint:'Spülbecken & Arbeitsbereich'},
+  {id:'kasse',   label:'🛒 Kassenbereich',       hint:'Kassenbereich Mitarbeiterseite'},
+];
+const UB_CHECKS = [
+  {id:'c1', text:'Lager ordentlich'},
+  {id:'c2', text:'Spülbecken sauber'},
+  {id:'c3', text:'Kassenbereich sauber'},
+  {id:'c4', text:'Regale aufgefüllt'},
+  {id:'c5', text:'Müll entsorgt'},
+  {id:'c6', text:'Keine offenen Probleme'},
+];
+
+let ubFotoSession = {}; // {lager: dataUrl, spuel: dataUrl, kasse: dataUrl}
+let ubCheckSession = {}; // {c1: true, c2: true, ...}
+
+function openUbergabeFoto() {
+  ubFotoSession = {};
+  ubCheckSession = {};
+  renderUbergabeFoto();
+  go('s-ub-foto');
+}
+
+function renderUbergabeFoto() {
+  const body = document.getElementById('ub-foto-body');
+  if(!body) return;
+  body.innerHTML = '';
+
+  // Header
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'font-size:18px;font-weight:900;color:#1a1714;margin-bottom:4px;';
+  hdr.textContent = 'Übergabe vorbereiten';
+  body.appendChild(hdr);
+  const sub = document.createElement('div');
+  sub.style.cssText = 'font-size:12px;color:#888;margin-bottom:16px;';
+  sub.textContent = 'Alle Pflichtfotos aufnehmen und Checkliste ausfüllen';
+  body.appendChild(sub);
+
+  // ── PFLICHTFOTOS ──
+  const fotoSec = document.createElement('div');
+  fotoSec.style.cssText = 'font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#0f3460;margin-bottom:8px;';
+  fotoSec.textContent = '📸 Pflichtfotos';
+  body.appendChild(fotoSec);
+
+  UB_FOTOS.forEach(function(f) {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.07);';
+    const hasPhoto = !!ubFotoSession[f.id];
+
+    card.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+        '<div>' +
+          '<div style="font-size:14px;font-weight:800;">' + f.label + '</div>' +
+          '<div style="font-size:11px;color:#888;">' + f.hint + '</div>' +
+        '</div>' +
+        (hasPhoto ? '<div style="color:#16a34a;font-size:18px;font-weight:900;">✓</div>' : '<div style="color:#dc2626;font-size:18px;">○</div>') +
+      '</div>';
+
+    if(hasPhoto) {
+      const img = document.createElement('img');
+      img.src = ubFotoSession[f.id];
+      img.style.cssText = 'width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-bottom:8px;';
+      card.appendChild(img);
+      const reBtn = document.createElement('button');
+      reBtn.style.cssText = 'width:100%;border:1.5px solid #0f3460;background:#fff;color:#0f3460;border-radius:9px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;';
+      reBtn.textContent = '🔄 Neu aufnehmen';
+      reBtn.onclick = function() { triggerUbCamera(f.id); };
+      card.appendChild(reBtn);
+    } else {
+      const btn = document.createElement('button');
+      btn.style.cssText = 'width:100%;background:#0f3460;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;';
+      btn.textContent = '📷 Foto aufnehmen';
+      btn.onclick = function() { triggerUbCamera(f.id); };
+      card.appendChild(btn);
+    }
+    body.appendChild(card);
+  });
+
+  // ── CHECKLISTE ──
+  const checkSec = document.createElement('div');
+  checkSec.style.cssText = 'font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#0f3460;margin:16px 0 8px;';
+  checkSec.textContent = '✅ Qualitätscheckliste';
+  body.appendChild(checkSec);
+
+  const checkCard = document.createElement('div');
+  checkCard.style.cssText = 'background:#fff;border-radius:14px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:16px;';
+  UB_CHECKS.forEach(function(c) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f3f3f3;cursor:pointer;';
+    row.onclick = function() { ubCheckSession[c.id] = !ubCheckSession[c.id]; renderUbergabeFoto(); };
+    const checked = !!ubCheckSession[c.id];
+    row.innerHTML =
+      '<div style="width:24px;height:24px;border-radius:6px;flex-shrink:0;border:2px solid ' + (checked ? '#16a34a' : '#d1d5db') + ';background:' + (checked ? '#16a34a' : '#fff') + ';display:flex;align-items:center;justify-content:center;">' +
+        (checked ? '<span style="color:#fff;font-size:14px;font-weight:900;">✓</span>' : '') +
+      '</div>' +
+      '<div style="font-size:14px;color:' + (checked ? '#16a34a' : '#1a1714') + ';font-weight:' + (checked ? '700' : '400') + ';">' + c.text + '</div>';
+    checkCard.appendChild(row);
+  });
+  body.appendChild(checkCard);
+
+  // ── FORTSCHRITT & BUTTON ──
+  const allFotos = UB_FOTOS.every(function(f){ return !!ubFotoSession[f.id]; });
+  const allChecks = UB_CHECKS.every(function(c){ return !!ubCheckSession[c.id]; });
+  const ready = allFotos && allChecks;
+
+  const prog = document.createElement('div');
+  const fotoCount = UB_FOTOS.filter(function(f){ return !!ubFotoSession[f.id]; }).length;
+  const checkCount = UB_CHECKS.filter(function(c){ return !!ubCheckSession[c.id]; }).length;
+  prog.style.cssText = 'text-align:center;font-size:12px;color:#888;margin-bottom:12px;';
+  prog.textContent = '📸 ' + fotoCount + '/' + UB_FOTOS.length + ' Fotos · ✅ ' + checkCount + '/' + UB_CHECKS.length + ' Punkte';
+  body.appendChild(prog);
+
+  const btn = document.getElementById('ub-foto-submit-btn');
+  if(btn) {
+    btn.disabled = !ready;
+    btn.style.opacity = ready ? '1' : '0.4';
+    btn.style.cursor = ready ? 'pointer' : 'not-allowed';
+  }
+}
+
+function triggerUbCamera(fotoId) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.capture = 'environment';
+  input.style.display = 'none';
+  input.onchange = function(e) {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      // Komprimieren auf max 800px Breite
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        const maxW = 800;
+        const scale = img.width > maxW ? maxW / img.width : 1;
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ubFotoSession[fotoId] = canvas.toDataURL('image/jpeg', 0.7);
+        document.body.removeChild(input);
+        renderUbergabeFoto();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  document.body.appendChild(input);
+  input.click();
+}
+
+function openUbFotoFullscreen(src, label) {
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:900;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;';
+  ov.onclick = function() { document.body.removeChild(ov); };
+  const lbl = document.createElement('div');
+  lbl.style.cssText = 'color:#fff;font-size:14px;font-weight:700;margin-bottom:12px;';
+  lbl.textContent = label;
+  const img = document.createElement('img');
+  img.src = src;
+  img.style.cssText = 'max-width:100%;max-height:75vh;border-radius:12px;object-fit:contain;';
+  const hint = document.createElement('div');
+  hint.style.cssText = 'color:#aaa;font-size:12px;margin-top:12px;';
+  hint.textContent = 'Tippen zum Schließen';
+  ov.appendChild(lbl); ov.appendChild(img); ov.appendChild(hint);
+  document.body.appendChild(ov);
+}
+
+function submitUbergabeFoto() {
+  const allFotos = UB_FOTOS.every(function(f){ return !!ubFotoSession[f.id]; });
+  const allChecks = UB_CHECKS.every(function(c){ return !!ubCheckSession[c.id]; });
+  if(!allFotos || !allChecks) {
+    alert('Bitte alle Fotos aufnehmen und alle Checkpunkte abhaken.');
+    return;
+  }
+  // Fotos und Checkliste in die Übergabe einbauen über finishSubmitUbergabe
+  // Wir speichern ubFotoSession in pendingUbFotos und gehen dann zu submitUbergabe()
+  window._pendingUbFotos = {
+    fotos: JSON.parse(JSON.stringify(ubFotoSession)),
+    checks: JSON.parse(JSON.stringify(ubCheckSession)),
+    ts: new Date().toLocaleString('de-DE'),
+    ma: st.name
+  };
+  // Jetzt zum bestehenden Übergabe-Flow
+  doUbergabePrep();
 }
 
 // ═══════════════════════════════════════════
@@ -4125,7 +4408,7 @@ function checkPw(){
   const disp=document.getElementById('pw-pin-display');
   const val=disp?disp.getAttribute('data-pin')||'':'';
   if(pwTarget==='admin'&&val===ADMIN_PW){pwPinReset();closeOv('ov-pw');renderAdmin();go('s-admin');}
-  else if(pwTarget==='sl'&&val===SL_PW){pwPinReset();closeOv('ov-pw');renderSL();go('s-sl');}
+  else if(pwTarget==='sl'&&val===SL_PW){pwPinReset();closeOv('ov-pw');window._slLoggedIn=true;renderSL();go('s-sl');}
   else{$style('pw-err','display','block');if(disp){disp.setAttribute('data-pin','');disp.textContent='';}}
 }
 function pwPinReset(){
@@ -4368,29 +4651,67 @@ function renderAdmin(){
 
   // Schwarzes Brett
   mkSec('📌 Schwarzes Brett');
-  const brettCard=document.createElement('div');brettCard.className='a-card';
-  schwarzesBrett.forEach((m,i)=>{
-    const row=document.createElement('div');row.className='a-row';
-    const lbl=document.createElement('div');lbl.style.flex='1';
-    lbl.innerHTML='<div class="a-label">'+(m.aktiv?'🟢 ':'🔴 ')+m.text+'</div><div class="a-sub">'+m.ts+(m.bestaetigt?' · '+m.bestaetigt.length+' bestätigt':'')+'</div>';
-    row.appendChild(lbl);
-    const bw=document.createElement('div');bw.style.cssText='display:flex;gap:6px;flex-shrink:0;';
-    const tb=document.createElement('button');
-    tb.style.cssText='background:'+(m.aktiv?'#fef3c7':'#dcfce7')+';border:none;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:'+(m.aktiv?'#92400e':'#15803d')+';';
-    tb.textContent=m.aktiv?'Deaktivieren':'Aktivieren';
-    (function(idx2,m2){tb.onclick=function(){m2.aktiv=!m2.aktiv;lsSave('schwarzesBrett',schwarzesBrett);renderAdmin();};})(i,m);
-    const db=document.createElement('button');db.className='a-del';db.textContent='Löschen';
-    (function(idx2){db.onclick=function(){schwarzesBrett.splice(idx2,1);lsSave('schwarzesBrett',schwarzesBrett);renderAdmin();};})(i);
-    bw.appendChild(tb);bw.appendChild(db);row.appendChild(bw);brettCard.appendChild(row);
+  var _todayAdmin = new Date().toISOString().slice(0,10);
+  // Abgelaufene automatisch ausblenden (aktiv=false setzen)
+  var _changed = false;
+  schwarzesBrett.forEach(function(m){
+    if(m.aktiv && m.bisDatum && _todayAdmin > m.bisDatum){ m.aktiv=false; _changed=true; }
   });
-  body.appendChild(brettCard);
-  const addBrettBtn=document.createElement('button');addBrettBtn.className='a-add';addBrettBtn.textContent='+ Aushang hinzufügen';
-  addBrettBtn.onclick=function(){
-    const txt=prompt('Text für Schwarzes Brett:');
-    if(!txt||!txt.trim())return;
-    schwarzesBrett.push({id:'bb'+Date.now(),ts:new Date().toLocaleString('de-DE'),text:txt.trim(),aktiv:true,bestaetigt:[]});
-    lsSave('schwarzesBrett',schwarzesBrett);renderAdmin();updateBadges();
-  };
+  if(_changed){ lsSave('schwarzesBrett',schwarzesBrett); fbSave('schwarzesBrett',schwarzesBrett); }
+  // Nur aktive anzeigen
+  var _aktiveAushaenge = schwarzesBrett.filter(function(m){ return m.aktiv; });
+  if(!_aktiveAushaenge.length){
+    const emptyDiv=document.createElement('div');
+    emptyDiv.style.cssText='background:#fff;border-radius:12px;padding:16px;text-align:center;color:#999;font-size:13px;margin-bottom:10px;';
+    emptyDiv.textContent='Keine aktiven Aushänge';
+    body.appendChild(emptyDiv);
+  } else {
+    _aktiveAushaenge.forEach(function(m,i){
+      const card=document.createElement('div');
+      card.style.cssText='background:#fff;border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.07);';
+      // Header mit Text
+      const topRow=document.createElement('div');
+      topRow.style.cssText='display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;';
+      const txtDiv=document.createElement('div');txtDiv.style.flex='1';
+      var vonStr=m.vonDatum?new Date(m.vonDatum).toLocaleDateString('de-DE'):'';
+      var bisStr=m.bisDatum?new Date(m.bisDatum).toLocaleDateString('de-DE'):'';
+      txtDiv.innerHTML='<div style="font-size:14px;font-weight:800;color:#1a1714;margin-bottom:4px;">'+(m.foto?'📷 ':'')+m.text+'</div>'+
+        '<div style="font-size:11px;color:#888;">Erstellt: '+m.ts+'</div>'+
+        (vonStr||bisStr?'<div style="font-size:11px;color:#0f3460;font-weight:600;margin-top:2px;">📅 '+vonStr+' – '+bisStr+'</div>':'');
+      const btnWrap=document.createElement('div');btnWrap.style.cssText='display:flex;gap:5px;flex-shrink:0;';
+      const editBtn=document.createElement('button');
+      editBtn.style.cssText='background:#e0e7ff;border:none;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:#3730a3;';
+      editBtn.textContent='✏️';
+      (function(mm){ editBtn.onclick=function(){ openBrettEditor(mm.id); }; })(m);
+      const delBtn=document.createElement('button');delBtn.className='a-del';delBtn.textContent='Löschen';
+      (function(mm,ii){ delBtn.onclick=function(){ schwarzesBrett.splice(schwarzesBrett.indexOf(mm),1); lsSave('schwarzesBrett',schwarzesBrett); fbSave('schwarzesBrett',schwarzesBrett); renderAdmin(); }; })(m,i);
+      btnWrap.appendChild(editBtn); btnWrap.appendChild(delBtn);
+      topRow.appendChild(txtDiv); topRow.appendChild(btnWrap);
+      card.appendChild(topRow);
+      // Optionales Foto
+      if(m.foto){
+        const img=document.createElement('img');
+        img.src=m.foto;
+        img.style.cssText='width:100%;max-height:140px;object-fit:cover;border-radius:9px;margin-bottom:8px;cursor:pointer;';
+        img.onclick=function(){ openUbFotoFullscreen(m.foto, m.text); };
+        card.appendChild(img);
+      }
+      // Bestätigungen
+      const bestList=m.bestaetigt&&m.bestaetigt.length?m.bestaetigt:[];
+      const bestDiv=document.createElement('div');
+      bestDiv.style.cssText='background:#f8fafc;border-radius:9px;padding:9px 11px;margin-top:4px;';
+      if(!bestList.length){
+        bestDiv.innerHTML='<div style="font-size:11px;color:#999;">Noch niemand bestätigt</div>';
+      } else {
+        bestDiv.innerHTML='<div style="font-size:10px;font-weight:700;color:#666;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;">✅ Bestätigt von ('+bestList.length+')</div>'+
+          bestList.map(function(n){ return '<span style="display:inline-block;background:#dcfce7;color:#15803d;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;margin:2px;">'+n+'</span>'; }).join('');
+      }
+      card.appendChild(bestDiv);
+      body.appendChild(card);
+    });
+  }
+  const addBrettBtn=document.createElement('button');addBrettBtn.className='a-add';addBrettBtn.textContent='+ Aushang erstellen';
+  addBrettBtn.onclick=function(){ openBrettEditor(null); };
   body.appendChild(addBrettBtn);
 
   // Defektmeldungen
@@ -5130,7 +5451,7 @@ let currentSLTab = 'dash';
 
 function slTab(tab) {
   currentSLTab = tab;
-  const tabs = ['dash','umsatz','dp','rep','aufg','regal'];
+  const tabs = ['dash','umsatz','dp','rep','aufg','regal','brett'];
   tabs.forEach(t => {
     const btn = document.getElementById('slt-'+t);
     const pane = document.getElementById('sl-tab-'+t);
@@ -5138,7 +5459,7 @@ function slTab(tab) {
       btn.style.background = t===tab ? '#fff' : 'rgba(255,255,255,.18)';
       btn.style.color = t===tab ? '#0f3460' : '#fff';
     }
-    if(pane) pane.style.display = t===tab ? (t==='aufg'||t==='regal'?'flex':'block') : 'none';
+    if(pane) pane.style.display = t===tab ? (t==='aufg'||t==='regal'||t==='brett'?'flex':'block') : 'none';
   });
   if(tab==='dash') renderSL();
   if(tab==='umsatz') renderUmsatz();
@@ -5146,6 +5467,7 @@ function slTab(tab) {
   if(tab==='rep') renderSLReport();
   if(tab==='aufg') { renderSLPersAufgaben(); }
   if(tab==='regal') setTimeout(function(){ renderSLRegalBewertung(); }, 50);
+  if(tab==='brett') renderSLBrett();
 }
 
 // ═══════════════════════════════════════════
@@ -5398,12 +5720,6 @@ function renderDP(){
   </div>
   <!-- Table -->
   <div style="overflow-x:auto;padding:8px 0;">
-  // Doppelte Erfassung verhindern
-  if(tempHistory.some(function(h){ return (h.date||h.datum)===today; })) {
-    alert('Temperaturkontrolle für heute wurde bereits erfasst.');
-    go('s-cl');
-    return;
-  }
     <table style="width:100%;border-collapse:separate;border-spacing:0;background:#fff;min-width:580px;">
       <thead><tr id="dp-th"></tr></thead>
       <tbody id="dp-tb"></tbody>
@@ -6529,6 +6845,14 @@ function openSlushScreen() {
       ).join('');
     }
   }
+  // PDF-Datumsfelder vorausfüllen (letzter Monat bis heute)
+  var today = new Date();
+  var firstOfMonth = new Date(today.getFullYear(), today.getMonth()-1, 1);
+  var von = document.getElementById('slush-pdf-von');
+  var bis = document.getElementById('slush-pdf-bis');
+  if(von && !von.value) von.value = firstOfMonth.toISOString().slice(0,10);
+  if(bis && !bis.value) bis.value = today.toISOString().slice(0,10);
+
   go('s-slush');
 }
 
@@ -6543,6 +6867,7 @@ function confirmSlush() {
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-90); // keep 90 days for slush
   slushHistory = slushHistory.filter(h => new Date(h.date) >= cutoff);
   lsSave('slushHistory', slushHistory);
+  fbSave('slushHistory', slushHistory);
 
   // Mark task done
   const slushTask = getMyTasks().find(function(t){return t.special==='slush';});
@@ -6551,6 +6876,58 @@ function confirmSlush() {
   alert('✅ Slushmaschinen-Reinigung bestätigt und gespeichert!');
   go('s-cl');
   renderCL();
+}
+
+function exportSlushPDF() {
+  var von = document.getElementById('slush-pdf-von').value;
+  var bis = document.getElementById('slush-pdf-bis').value;
+  if(!von || !bis) { alert('Bitte Von- und Bis-Datum auswählen.'); return; }
+  if(von > bis) { alert('Von-Datum muss vor Bis-Datum liegen.'); return; }
+
+  var filtered = slushHistory.filter(function(h){ return h.date >= von && h.date <= bis; });
+  filtered.sort(function(a,b){ return a.date.localeCompare(b.date); });
+
+  var vonFmt = new Date(von).toLocaleDateString('de-DE');
+  var bisFmt = new Date(bis).toLocaleDateString('de-DE');
+
+  var rows = filtered.map(function(h, i) {
+    var d = new Date(h.date).toLocaleDateString('de-DE');
+    return '<tr style="background:'+(i%2===0?'#fff':'#f9f7ff')+';">' +
+      '<td style="padding:8px 10px;border-bottom:1px solid #e8e4f5;font-size:12px;">'+(i+1)+'</td>' +
+      '<td style="padding:8px 10px;border-bottom:1px solid #e8e4f5;font-size:12px;font-weight:600;">' + d + '</td>' +
+      '<td style="padding:8px 10px;border-bottom:1px solid #e8e4f5;font-size:12px;">' + (h.ts||'') + '</td>' +
+      '<td style="padding:8px 10px;border-bottom:1px solid #e8e4f5;font-size:12px;">' + (h.ma||'') + '</td>' +
+      '<td style="padding:8px 10px;border-bottom:1px solid #e8e4f5;font-size:12px;text-align:center;color:#16a34a;font-weight:700;">✓</td>' +
+    '</tr>';
+  }).join('');
+
+  if(!rows) rows = '<tr><td colspan="5" style="padding:20px;text-align:center;color:#999;font-size:12px;">Keine Einträge im gewählten Zeitraum</td></tr>';
+
+  var html = '<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8">' +
+    '<title>Slushmaschine Reinigungsprotokoll</title>' +
+    '<style>body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#1a1714;}' +
+    'h1{font-size:18px;margin:0 0 4px;}' +
+    '.sub{font-size:12px;color:#666;margin-bottom:16px;}' +
+    'table{width:100%;border-collapse:collapse;margin-top:12px;}' +
+    'th{background:#7c3aed;color:#fff;padding:9px 10px;font-size:11px;text-align:left;}' +
+    '.footer{margin-top:20px;font-size:10px;color:#999;border-top:1px solid #e0e0e0;padding-top:10px;}' +
+    '@media print{button{display:none!important;}}' +
+    '</style></head><body>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
+    '<div><h1>🧊 Slushmaschine – Reinigungsprotokoll</h1>' +
+    '<div class="sub">Prima Supermarkt Reutlingen GmbH · Zeitraum: ' + vonFmt + ' – ' + bisFmt + '</div></div>' +
+    '<div style="text-align:right;font-size:11px;color:#666;">Erstellt: ' + new Date().toLocaleDateString('de-DE') + '</div></div>' +
+    '<table><thead><tr>' +
+    '<th style="width:40px;">#</th><th>Datum</th><th>Uhrzeit</th><th>Mitarbeiter</th><th style="width:60px;text-align:center;">Erledigt</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<div class="footer">Anzahl Reinigungen: <strong>' + filtered.length + '</strong> · ' +
+    'Dokument für Lebensmittelkontrolleure · Prima Supermarkt Reutlingen GmbH</div>' +
+    '<br><button onclick="window.print()" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:13px;cursor:pointer;font-family:Arial;">🖨️ Drucken / Als PDF speichern</button>' +
+    '</body></html>';
+
+  var w = window.open('', '_blank');
+  if(w) { w.document.write(html); w.document.close(); }
+  else { alert('Bitte Pop-ups für diese Seite erlauben.'); }
 }
 
 // ═══════════════════════════════════════════
@@ -7085,8 +7462,217 @@ function closeScanner(){
 // ═══════════════════════════════════════════
 // SCHWARZES BRETT
 // ═══════════════════════════════════════════
+function renderSLBrett() {
+  const pane = document.getElementById('sl-brett-pane');
+  if(!pane) return;
+  pane.innerHTML = '';
+  var _td = new Date().toISOString().slice(0,10);
+
+  // Abgelaufene automatisch deaktivieren
+  var changed = false;
+  schwarzesBrett.forEach(function(m){
+    if(m.aktiv && m.bisDatum && _td > m.bisDatum){ m.aktiv=false; changed=true; }
+  });
+  if(changed){ lsSave('schwarzesBrett',schwarzesBrett); fbSave('schwarzesBrett',schwarzesBrett); }
+
+  var aktive = schwarzesBrett.filter(function(m){ return m.aktiv; });
+
+  // Erstellen-Button oben
+  const addBtn = document.createElement('button');
+  addBtn.style.cssText = 'width:100%;background:#0f3460;color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:14px;';
+  addBtn.textContent = '+ Aushang erstellen';
+  addBtn.onclick = function(){ openBrettEditor(null); };
+  pane.appendChild(addBtn);
+
+  if(!aktive.length) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'text-align:center;padding:30px 20px;color:#999;font-size:13px;background:#fff;border-radius:12px;';
+    empty.innerHTML = '<div style="font-size:36px;margin-bottom:8px;">📌</div>Keine aktiven Aushänge';
+    pane.appendChild(empty);
+    return;
+  }
+
+  aktive.forEach(function(m) {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.07);';
+
+    // Zeitraum
+    var vonStr = m.vonDatum ? new Date(m.vonDatum).toLocaleDateString('de-DE') : '';
+    var bisStr = m.bisDatum ? new Date(m.bisDatum).toLocaleDateString('de-DE') : '';
+    var zeitraum = (vonStr||bisStr) ? '<div style="font-size:11px;color:#0f3460;font-weight:600;margin-bottom:5px;">📅 '+vonStr+' – '+bisStr+'</div>' : '';
+
+    card.innerHTML = zeitraum +
+      '<div style="font-size:15px;font-weight:800;color:#1a1714;margin-bottom:4px;line-height:1.4;">'+(m.foto?'📷 ':'')+m.text+'</div>'+
+      '<div style="font-size:11px;color:#aaa;margin-bottom:8px;">Erstellt: '+m.ts+'</div>';
+
+    // Foto
+    if(m.foto) {
+      const img = document.createElement('img');
+      img.src = m.foto;
+      img.style.cssText = 'width:100%;max-height:150px;object-fit:cover;border-radius:9px;margin-bottom:10px;cursor:pointer;';
+      img.onclick = function(){ openUbFotoFullscreen(m.foto, m.text); };
+      card.appendChild(img);
+    }
+
+    // Bestätigungen
+    const bestList = m.bestaetigt && m.bestaetigt.length ? m.bestaetigt : [];
+    const bestDiv = document.createElement('div');
+    bestDiv.style.cssText = 'background:#f8fafc;border-radius:9px;padding:10px 12px;margin-bottom:10px;';
+    if(!bestList.length) {
+      bestDiv.innerHTML = '<div style="font-size:11px;color:#999;text-align:center;">Noch niemand hat bestätigt</div>';
+    } else {
+      bestDiv.innerHTML = '<div style="font-size:10px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">✅ Bestätigt ('+bestList.length+')</div>'+
+        bestList.map(function(n){ return '<span style="display:inline-block;background:#dcfce7;color:#15803d;border-radius:6px;padding:3px 9px;font-size:12px;font-weight:700;margin:2px 3px 2px 0;">'+n+'</span>'; }).join('');
+    }
+    card.appendChild(bestDiv);
+
+    // Aktionen
+    const acts = document.createElement('div');
+    acts.style.cssText = 'display:flex;gap:7px;';
+    const editBtn = document.createElement('button');
+    editBtn.style.cssText = 'flex:1;background:#e0e7ff;border:none;border-radius:9px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:#3730a3;';
+    editBtn.textContent = '✏️ Bearbeiten';
+    (function(mm){ editBtn.onclick = function(){ openBrettEditor(mm.id); }; })(m);
+    const delBtn = document.createElement('button');
+    delBtn.style.cssText = 'flex:1;background:#fee2e2;border:none;border-radius:9px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:#dc2626;';
+    delBtn.textContent = '🗑️ Löschen';
+    (function(mm){ delBtn.onclick = function(){
+      if(!confirm('Aushang löschen?')) return;
+      schwarzesBrett.splice(schwarzesBrett.indexOf(mm),1);
+      lsSave('schwarzesBrett',schwarzesBrett); fbSave('schwarzesBrett',schwarzesBrett);
+      renderSLBrett();
+    }; })(m);
+    acts.appendChild(editBtn); acts.appendChild(delBtn);
+    card.appendChild(acts);
+    pane.appendChild(card);
+  });
+}
+
+function openBrettEditor(editId) {
+  var existing = editId ? schwarzesBrett.find(function(m){return m.id===editId;}) : null;
+  var fotoData = existing ? (existing.foto||null) : null;
+
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:700;display:flex;align-items:flex-end;justify-content:center;padding:0;';
+  var card = document.createElement('div');
+  card.style.cssText = 'background:#f5f5f5;border-radius:20px 20px 0 0;padding:22px 18px 32px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;';
+
+  var today = new Date().toISOString().slice(0,10);
+  var inTwoWeeks = new Date(Date.now()+14*24*60*60*1000).toISOString().slice(0,10);
+
+  card.innerHTML =
+    '<div style="font-size:18px;font-weight:900;margin-bottom:4px;">📌 '+(existing?'Aushang bearbeiten':'Neuer Aushang')+'</div>'+
+    '<div style="font-size:12px;color:#888;margin-bottom:16px;">Alle Mitarbeiter werden benachrichtigt</div>'+
+
+    '<div style="font-size:11px;font-weight:700;color:#555;margin-bottom:5px;">TEXT *</div>'+
+    '<textarea id="brett-txt" placeholder="Was möchtest du mitteilen?" rows="4" style="width:100%;border:1.5px solid #d1d5db;border-radius:10px;padding:11px;font-size:14px;font-family:inherit;outline:none;resize:none;box-sizing:border-box;margin-bottom:14px;">'+(existing?existing.text:'')+'</textarea>'+
+
+    '<div style="font-size:11px;font-weight:700;color:#555;margin-bottom:5px;">ZEITRAUM (von – bis) *</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">'+
+      '<div><label style="font-size:10px;color:#888;display:block;margin-bottom:3px;">Von</label>'+
+      '<input type="date" id="brett-von" value="'+(existing&&existing.vonDatum?existing.vonDatum:today)+'" style="width:100%;border:1.5px solid #d1d5db;border-radius:9px;padding:9px;font-size:13px;font-family:inherit;box-sizing:border-box;"></div>'+
+      '<div><label style="font-size:10px;color:#888;display:block;margin-bottom:3px;">Bis</label>'+
+      '<input type="date" id="brett-bis" value="'+(existing&&existing.bisDatum?existing.bisDatum:inTwoWeeks)+'" style="width:100%;border:1.5px solid #d1d5db;border-radius:9px;padding:9px;font-size:13px;font-family:inherit;box-sizing:border-box;"></div>'+
+    '</div>'+
+
+    '<div style="font-size:11px;font-weight:700;color:#555;margin-bottom:5px;">FOTO (optional)</div>'+
+    '<div id="brett-foto-preview" style="margin-bottom:10px;">'+(fotoData?'<img src="'+fotoData+'" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;">':'')+'</div>'+
+    '<div style="display:flex;gap:8px;margin-bottom:20px;">'+
+      '<button onclick="triggerBrettFoto()" style="flex:1;border:1.5px solid #0f3460;background:#fff;color:#0f3460;border-radius:9px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">📷 Foto aufnehmen</button>'+
+      '<button onclick="loadBrettFromLibrary()" style="flex:1;border:1.5px solid #0f3460;background:#fff;color:#0f3460;border-radius:9px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">🖼️ Aus Bibliothek</button>'+
+      (fotoData?'<button onclick="clearBrettFoto()" style="border:1.5px solid #dc2626;background:#fff;color:#dc2626;border-radius:9px;padding:10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">✕</button>':'')+'</div>'+
+    '<input type="file" id="brett-foto-file" accept="image/*" style="display:none;" onchange="loadBrettFotoFile(event)">';
+
+  window._brettFoto = fotoData;
+  window._brettEditId = editId;
+
+  var saveBtn = document.createElement('button');
+  saveBtn.style.cssText = 'width:100%;background:#0f3460;color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:8px;';
+  saveBtn.textContent = existing ? '💾 Speichern' : '📌 Aushang veröffentlichen';
+  saveBtn.onclick = function() {
+    var txt = document.getElementById('brett-txt').value.trim();
+    var von = document.getElementById('brett-von').value;
+    var bis = document.getElementById('brett-bis').value;
+    if(!txt) { alert('Bitte Text eingeben.'); return; }
+    if(!von || !bis) { alert('Bitte Zeitraum eingeben.'); return; }
+    if(von > bis) { alert('Von-Datum muss vor Bis-Datum liegen.'); return; }
+    if(existing) {
+      existing.text = txt;
+      existing.vonDatum = von;
+      existing.bisDatum = bis;
+      existing.foto = window._brettFoto || null;
+    } else {
+      schwarzesBrett.push({
+        id:'bb'+Date.now(),
+        ts: new Date().toLocaleString('de-DE'),
+        text: txt,
+        aktiv: true,
+        bestaetigt: [],
+        vonDatum: von,
+        bisDatum: bis,
+        foto: window._brettFoto || null
+      });
+    }
+    lsSave('schwarzesBrett',schwarzesBrett);
+    fbSave('schwarzesBrett',schwarzesBrett);
+    updateBadges();
+    document.body.removeChild(ov);
+    // Wenn SL-Tab aktiv, SL-Brett neu rendern, sonst Admin
+    if(window._slLoggedIn) { renderSLBrett(); }
+    else { renderAdmin(); }
+    window._brettFoto = null;
+  };
+  var cancelBtn = document.createElement('button');
+  cancelBtn.style.cssText = 'width:100%;background:none;border:none;color:#aaa;font-size:13px;cursor:pointer;font-family:inherit;padding:8px;';
+  cancelBtn.textContent = 'Abbrechen';
+  cancelBtn.onclick = function(){ document.body.removeChild(ov); window._brettFoto=null; };
+  card.appendChild(saveBtn);
+  card.appendChild(cancelBtn);
+  ov.appendChild(card);
+  document.body.appendChild(ov);
+}
+
+function clearBrettFoto() {
+  window._brettFoto = null;
+  var prev = document.getElementById('brett-foto-preview');
+  if(prev) prev.innerHTML = '';
+}
+function loadBrettFromLibrary() {
+  var el = document.getElementById('brett-foto-file');
+  if(el) el.click();
+}
+function triggerBrettFoto() {
+  var input = document.createElement('input');
+  input.type='file'; input.accept='image/*'; input.capture='environment'; input.style.display='none';
+  input.onchange = function(e){ processBrettFotoFile(e.target.files[0]); document.body.removeChild(input); };
+  document.body.appendChild(input);
+  input.click();
+}
+function loadBrettFotoFile(e){ processBrettFotoFile(e.target.files[0]); }
+function processBrettFotoFile(file) {
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var img = new Image();
+    img.onload = function() {
+      var canvas = document.createElement('canvas');
+      var maxW = 900;
+      var scale = img.width > maxW ? maxW/img.width : 1;
+      canvas.width = img.width*scale; canvas.height = img.height*scale;
+      canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+      window._brettFoto = canvas.toDataURL('image/jpeg',0.75);
+      var prev = document.getElementById('brett-foto-preview');
+      if(prev) prev.innerHTML = '<img src="'+window._brettFoto+'" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;">';
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 function openBrett() {
   renderBrett();
+  // SL-Erstellen-Button nur für Schichtleiter sichtbar
+
   go('s-brett');
 }
 
@@ -7094,27 +7680,60 @@ function renderBrett() {
   const body = document.getElementById('brett-body');
   if(!body) return;
   body.innerHTML = '';
-  const aktive = schwarzesBrett.filter(m=>m.aktiv);
+  const today = new Date().toISOString().slice(0,10);
+  // Aktive Einträge: aktiv=true UND Zeitraum noch gültig
+  const aktive = schwarzesBrett.filter(function(m){
+    if(!m.aktiv) return false;
+    if(m.vonDatum && today < m.vonDatum) return false;
+    if(m.bisDatum && today > m.bisDatum) return false;
+    return true;
+  });
   if(!aktive.length) {
-    body.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#ccc;"><div style="font-size:44px;margin-bottom:12px;">📌</div><div style="font-size:15px;font-weight:700;color:#333;">Keine Einträge</div></div>';
+    body.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#ccc;"><div style="font-size:44px;margin-bottom:12px;">📌</div><div style="font-size:15px;font-weight:700;color:#333;">Keine aktuellen Aushänge</div></div>';
     return;
   }
-  aktive.forEach(msg => {
+  aktive.forEach(function(msg) {
     const already = msg.bestaetigt && msg.bestaetigt.includes(st.name);
     const card = document.createElement('div');
     card.style.cssText = 'background:#fff;border-radius:13px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.08);margin-bottom:10px;border-left:4px solid #1a1a1a;';
-    card.innerHTML = '<div style="font-size:14px;font-weight:700;color:#111;margin-bottom:6px;">'+msg.text+'</div>'+
-      '<div style="font-size:11px;color:#888;margin-bottom:10px;">📅 '+msg.ts+(msg.bestaetigt&&msg.bestaetigt.length?' · ✅ '+msg.bestaetigt.length+' bestätigt':'')+'</div>';
+    // Zeitraum-Anzeige
+    var zeitraum = '';
+    if(msg.vonDatum || msg.bisDatum) {
+      var vStr = msg.vonDatum ? new Date(msg.vonDatum).toLocaleDateString('de-DE') : '';
+      var bStr = msg.bisDatum ? new Date(msg.bisDatum).toLocaleDateString('de-DE') : '';
+      zeitraum = '<div style="font-size:11px;color:#0f3460;font-weight:600;margin-bottom:6px;">📅 Gültig: '+vStr+' – '+bStr+'</div>';
+    }
+    card.innerHTML = zeitraum +
+      '<div style="font-size:15px;font-weight:800;color:#111;margin-bottom:8px;line-height:1.4;">'+msg.text+'</div>'+
+      '<div style="font-size:11px;color:#888;margin-bottom:10px;">Erstellt: '+msg.ts+(msg.bestaetigt&&msg.bestaetigt.length?' · ✅ '+msg.bestaetigt.length+' bestätigt':'')+'</div>';
+    // Optionales Foto
+    if(msg.foto) {
+      const img = document.createElement('img');
+      img.src = msg.foto;
+      img.style.cssText = 'width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin-bottom:10px;cursor:pointer;';
+      img.onclick = function() { openUbFotoFullscreen(msg.foto, msg.text); };
+      card.appendChild(img);
+    }
     if(!already) {
       const btn = document.createElement('button');
-      btn.style.cssText = 'background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;';
+      btn.style.cssText = 'background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:11px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;';
       btn.textContent = '✅ Gelesen & verstanden';
       (function(m){ btn.addEventListener('click', function(){
         if(!m.bestaetigt) m.bestaetigt=[];
         if(st.name && !m.bestaetigt.includes(st.name)) m.bestaetigt.push(st.name);
         lsSave('schwarzesBrett',schwarzesBrett);
-        renderBrett();
+        fbSave('schwarzesBrett',schwarzesBrett);
         updateBadges();
+        // Prüfen ob noch weitere unbestätigte Aushänge da sind
+        var _td = new Date().toISOString().slice(0,10);
+        var _remaining = schwarzesBrett.filter(function(x){
+          if(!x.aktiv) return false;
+          if(x.vonDatum && _td < x.vonDatum) return false;
+          if(x.bisDatum && _td > x.bisDatum) return false;
+          return !(x.bestaetigt && st.name && x.bestaetigt.includes(st.name));
+        });
+        if(_remaining.length) { renderBrett(); }
+        else { go('s-cl'); renderCL(); }
       });})(msg);
       card.appendChild(btn);
     } else {
@@ -7129,7 +7748,13 @@ function renderBrett() {
 
 function updateBadges() {
   // Brett badge: unconfirmed messages for current user
-  const unconf = schwarzesBrett.filter(m=>m.aktiv&&!(m.bestaetigt&&st.name&&m.bestaetigt.includes(st.name)));
+  const _today = new Date().toISOString().slice(0,10);
+  const unconf = schwarzesBrett.filter(function(m){
+    if(!m.aktiv) return false;
+    if(m.vonDatum && _today < m.vonDatum) return false;
+    if(m.bisDatum && _today > m.bisDatum) return false;
+    return !(m.bestaetigt && st.name && m.bestaetigt.includes(st.name));
+  });
   const brettBadge = document.getElementById('brett-badge');
   if(brettBadge){ brettBadge.style.display=unconf.length?'block':'none'; brettBadge.textContent=unconf.length; }
   // Defekt badge: open defects
@@ -7938,7 +8563,7 @@ function renderHRUrlaub() {
 
   function antragCard(a, showBtns) {
     var isGz = a.typ==='gleitzeit';
-    var ico  = isGz ? '&#9200;' : '&#127796;';
+    var ico  = isGz ? '⏰' : '🌴';
     var typ  = isGz ? 'Gleitzeittag' : 'Urlaub';
     var d = document.createElement('div');
     d.style.cssText = 'background:#fff;border-radius:10px;padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.06);';
@@ -8809,14 +9434,14 @@ function renderMaProfilDetails(name, body) {
   // Urlaub beantragen
   var urlBtn = document.createElement('button');
   urlBtn.style.cssText = 'width:100%;background:#0f766e;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;touch-action:manipulation;';
-  urlBtn.textContent = '&#127796; Urlaub beantragen';
+  urlBtn.textContent = '🌴 Urlaub beantragen';
   urlBtn.addEventListener('click', function(){ openUrlaubFuerMA(name); });
   card.appendChild(urlBtn);
 
   // Gleitzeittag beantragen (nur wenn Saldo >= Tagessoll)
   var gzBtn = document.createElement('button');
   gzBtn.style.cssText = 'width:100%;background:'+(kannGleitzeit?'#1e3a5f':'#e0e0e0')+';color:'+(kannGleitzeit?'#fff':'#aaa')+';border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;touch-action:manipulation;';
-  gzBtn.textContent = '&#9200; Gleitzeittag beantragen'+(kannGleitzeit?'':' (nicht genug Stunden)');
+  gzBtn.textContent = '⏰ Gleitzeittag beantragen'+(kannGleitzeit?'':' (nicht genug Stunden)');
   if(kannGleitzeit) {
     gzBtn.addEventListener('click', function(){ openGleitzeitantrag(name); });
   }
