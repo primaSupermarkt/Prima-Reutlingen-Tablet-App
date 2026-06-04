@@ -1597,6 +1597,18 @@ let rollenAufgaben = lsLoad('rollenAufgaben', {
   ],
 });
 
+// Migration: falls localStorage noch alte Rollen-Keys enthält → neu befüllen
+(function(){
+  const newKeys = ['early_bake_off','early_frueh_verkauf','mid_mittel','late_spaet_verkauf','late_spaet_service'];
+  const hasNew = newKeys.some(function(k){ return (rollenAufgaben[k]||[]).length > 0; });
+  const hasOld = ['early_kasse','early_regal','early_lager','mid_kasse','mid_regal','mid_lager','mid_springer','late_kasse','late_regal','late_lager'].some(function(k){ return (rollenAufgaben[k]||[]).length > 0; });
+  if(hasOld && !hasNew) {
+    // Alte Keys löschen, Default wiederherstellen
+    localStorage.removeItem('prima_rollenAufgaben');
+    location.reload();
+  }
+})();
+
 // getMyTasks: holt Aufgaben für aktuelle Schicht+Rolle aus rollenAufgaben
 // + admin-hinzugefügte persAufgaben
 
