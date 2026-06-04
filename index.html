@@ -2852,40 +2852,115 @@ function calcRegalQuote(tage) {
   return Math.round(ok / relevant.length * 100);
 }
 
-function bereinigeFotoHistorie() {
-  // Loescht regalFotos die aelter als 8 Tage sind
-  var cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 8);
-  var cutoffStr = cutoff.toISOString().slice(0,10);
-  var vorher = regalFotos.length;
-  // Foto-Daten (dataUrl) aus alten Eintraegen entfernen um Speicher zu sparen
-  // Der Eintrag bleibt, aber das Bild wird geloescht
-  var geaendert = false;
-  regalFotos.forEach(function(f) {
-    if(f.datum < cutoffStr && f.dataUrl) {
-      delete f.dataUrl;
-      geaendert = true;
-    }
-  });
-  // Eintraege aelter als 8 Tage komplett entfernen
-  var nachher = regalFotos.filter(function(f){ return f.datum >= cutoffStr; });
-  if(nachher.length !== vorher || geaendert) {
-    regalFotos = nachher;
-    lsSave('regalFotos', regalFotos);
-    fbSave('regalFotos', regalFotos);
-    console.log('[Prima] Fotos bereinigt: '+vorher+' -> '+regalFotos.length);
+function bereinigeFotoHistorie() { bereinigeDaten(); } // Kompatibilität
+
+function bereinigeDaten() {
+  var now = new Date();
+
+  // ── Cutoff-Daten ──
+  var foto2  = new Date(now); foto2.setDate(foto2.getDate() - 2);
+  var data30 = new Date(now); data30.setDate(data30.getDate() - 30);
+  var fotoStr  = foto2.toISOString().slice(0,10);
+  var dataStr  = data30.toISOString().slice(0,10);
+
+  var log = [];
+
+  // ── FOTOS: Regalfotos (2 Tage) ──
+  if(Array.isArray(regalFotos)) {
+    var v = regalFotos.length;
+    // Foto-Daten aus alten Eintraegen entfernen
+    regalFotos.forEach(function(f){ if(f.datum < fotoStr && f.dataUrl){ delete f.dataUrl; } });
+    regalFotos = regalFotos.filter(function(f){ return f.datum >= fotoStr; });
+    if(regalFotos.length !== v){ lsSave('regalFotos',regalFotos); fbSave('regalFotos',regalFotos); log.push('regalFotos: '+v+'→'+regalFotos.length); }
   }
-  // Auch regalNachbesserungen aelter 8 Tage + erledigt loeschen
-  if(Array.isArray(regalNachbesserungen)) {
-    var nbVorher = regalNachbesserungen.length;
-    regalNachbesserungen = regalNachbesserungen.filter(function(n){
-      return n.datum >= cutoffStr || n.status === 'offen';
+
+  // ── FOTOS: Übergabe-Fotos aus Qualitätskontrolle (2 Tage) ──
+  if(Array.isArray(ubergaben)) {
+    var changed = false;
+    ubergaben.forEach(function(u) {
+      if(u.qualitaet && u.qualitaet.fotos) {
+        // Datum der Übergabe prüfen
+        var ubDate = u.ts ? u.ts.slice(6,10)+'-'+u.ts.slice(3,5)+'-'+u.ts.slice(0,2) : '';
+        if(ubDate && ubDate < fotoStr) {
+          delete u.qualitaet.fotos;
+          changed = true;
+        }
+      }
     });
-    if(regalNachbesserungen.length !== nbVorher) {
-      lsSave('regalNachbesserungen', regalNachbesserungen);
-      fbSave('regalNachbesserungen', regalNachbesserungen);
-    }
+    if(changed){ lsSave('ubergaben',ubergaben); fbSave('ubergaben',ubergaben); log.push('Übergabe-Fotos bereinigt'); }
   }
+
+  // ── FOTOS: Aushang-Fotos (Schwarzes Brett) nach Ablauf löschen ──
+  if(Array.isArray(schwarzesBrett)) {
+    var changed2 = false;
+    schwarzesBrett.forEach(function(m) {
+      if(m.foto && m.bisDatum && m.bisDatum < fotoStr) {
+        delete m.foto;
+        changed2 = true;
+      }
+    });
+    if(changed2){ lsSave('schwarzesBrett',schwarzesBrett); fbSave('schwarzesBrett',schwarzesBrett); log.push('Brett-Fotos bereinigt'); }
+  }
+
+  // ── DATEN: Temperaturhistorie (30 Tage) ──
+  if(Array.isArray(tempHistory)) {
+    var v2 = tempHistory.length;
+    tempHistory = tempHistory.filter(function(h){ return (h.date||h.datum||'') >= dataStr; });
+    if(tempHistory.length !== v2){ lsSave('tempHistory',tempHistory); fbSave('tempHistory',tempHistory); log.push('tempHistory: '+v2+'→'+tempHistory.length); }
+  }
+
+  // ── DATEN: Slush-Historie (30 Tage) ──
+  if(Array.isArray(slushHistory)) {
+    var v3 = slushHistory.length;
+    slushHistory = slushHistory.filter(function(h){ return (h.date||'') >= dataStr; });
+    if(slushHistory.length !== v3){ lsSave('slushHistory',slushHistory); fbSave('slushHistory',slushHistory); log.push('slushHistory: '+v3+'→'+slushHistory.length); }
+  }
+
+  // ── DATEN: Schichthistorie (30 Tage) ──
+  if(Array.isArray(history)) {
+    var v4 = history.length;
+    history = history.filter(function(h){
+      try { var d=h.ts.slice(6,10)+'-'+h.ts.slice(3,5)+'-'+h.ts.slice(0,2); return d >= dataStr; } catch(e){ return true; }
+    });
+    if(history.length !== v4){ lsSave('history',history); fbSave('history',history); log.push('history: '+v4+'→'+history.length); }
+  }
+
+  // ── DATEN: Übergaben abgeschlossen (30 Tage) ──
+  if(Array.isArray(ubergaben)) {
+    var v5 = ubergaben.length;
+    ubergaben = ubergaben.filter(function(u){
+      if(u.status === 'open') return true; // offene immer behalten
+      try { var d=u.ts.slice(6,10)+'-'+u.ts.slice(3,5)+'-'+u.ts.slice(0,2); return d >= dataStr; } catch(e){ return true; }
+    });
+    if(ubergaben.length !== v5){ lsSave('ubergaben',ubergaben); fbSave('ubergaben',ubergaben); log.push('ubergaben: '+v5+'→'+ubergaben.length); }
+  }
+
+  // ── DATEN: Inventurhistorie (30 Tage) ──
+  if(Array.isArray(inventurHistory)) {
+    var v6 = inventurHistory.length;
+    inventurHistory = inventurHistory.filter(function(h){ return (h.date||'') >= dataStr; });
+    if(inventurHistory.length !== v6){ lsSave('inventurHistory',inventurHistory); fbSave('inventurHistory',inventurHistory); log.push('inventurHistory: '+v6+'→'+inventurHistory.length); }
+  }
+
+  // ── DATEN: Regalfotos Nachbesserungen (30 Tage, erledigte) ──
+  if(Array.isArray(regalNachbesserungen)) {
+    var v7 = regalNachbesserungen.length;
+    regalNachbesserungen = regalNachbesserungen.filter(function(n){
+      return n.datum >= dataStr || n.status === 'offen';
+    });
+    if(regalNachbesserungen.length !== v7){ lsSave('regalNachbesserungen',regalNachbesserungen); fbSave('regalNachbesserungen',regalNachbesserungen); log.push('regalNachbesserungen: '+v7+'→'+regalNachbesserungen.length); }
+  }
+
+  // ── DATEN: Mitarbeiter-Nachrichten (30 Tage) ──
+  if(Array.isArray(mitarbeiterNachrichten)) {
+    var v8 = mitarbeiterNachrichten.length;
+    mitarbeiterNachrichten = mitarbeiterNachrichten.filter(function(m){
+      try { var d=m.ts.slice(6,10)+'-'+m.ts.slice(3,5)+'-'+m.ts.slice(0,2); return d >= dataStr; } catch(e){ return true; }
+    });
+    if(mitarbeiterNachrichten.length !== v8){ lsSave('mitNachrichten',mitarbeiterNachrichten); fbSave('mitNachrichten',mitarbeiterNachrichten); log.push('mitNachrichten: '+v8+'→'+mitarbeiterNachrichten.length); }
+  }
+
+  if(log.length) console.log('[Prima Cleanup] '+log.join(', '));
 }
 
 
