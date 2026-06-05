@@ -212,6 +212,7 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:var(
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js" crossorigin="anonymous"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js" crossorigin="anonymous"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -888,6 +889,7 @@ function initFirebase() {
     db.collection('prima').doc('mitNachrichten').get()
       .then(function(doc){
         fbReady=true;
+        initFbStorage(); // Firebase Storage initialisieren
         if(statusEl)statusEl.innerHTML='<span style="color:#16a34a;">&#9679; Firebase &#10003;</span>';
         try {
           if(doc.exists){ syncFromFirebase(); }
@@ -1087,6 +1089,69 @@ function syncFromFirebase() {
 const _lsSaveOrig = function(key, val) {
   try { localStorage.setItem('prima_'+key, JSON.stringify(val)); } catch(e) {}
 };
+
+
+// ═══════════════════════════════════════════
+// FIREBASE STORAGE HELPER
+// Lädt Bilder in Firebase Storage hoch und gibt die Download-URL zurück.
+// Fotos werden NIE mehr als Base64 in Firestore gespeichert.
+// ═══════════════════════════════════════════
+let fbStorage = null;
+
+// Storage initialisieren (wird nach Firebase-Init aufgerufen)
+function initFbStorage() {
+  try {
+    if(typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
+      fbStorage = firebase.storage();
+    }
+  } catch(e) { console.warn('[Storage] Init fehlgeschlagen:', e); }
+}
+
+/**
+ * uploadFotoToStorage(dataUrl, path) → Promise<downloadUrl>
+ * Komprimiert auf max. 1200px / JPEG 0.75, lädt in Firebase Storage hoch.
+ * path z.B.: 'regalfotos/2026-06-05_Kühlregal_rf123456.jpg'
+ */
+function uploadFotoToStorage(dataUrl, path) {
+  return new Promise(function(resolve, reject) {
+    if(!fbStorage) { reject(new Error('Storage nicht initialisiert')); return; }
+
+    // 1. Canvas-Komprimierung: max 1200px, JPEG 0.75
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const maxW = 1200;
+      const scale = img.width > maxW ? maxW / img.width : 1;
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(function(blob) {
+        if(!blob) { reject(new Error('Canvas→Blob fehlgeschlagen')); return; }
+        // 2. Upload
+        const ref = fbStorage.ref(path);
+        const uploadTask = ref.put(blob, { contentType: 'image/jpeg' });
+        uploadTask.on('state_changed',
+          null, // Fortschritt ignorieren
+          function(err) { reject(err); },
+          function() {
+            uploadTask.snapshot.ref.getDownloadURL().then(resolve).catch(reject);
+          }
+        );
+      }, 'image/jpeg', 0.75);
+    };
+    img.onerror = function() { reject(new Error('Bild konnte nicht geladen werden')); };
+    img.src = dataUrl;
+  });
+}
+
+/**
+ * deleteFotoFromStorage(url) – löscht ein Foto anhand der Download-URL
+ */
+function deleteFotoFromStorage(url) {
+  if(!fbStorage || !url || !url.startsWith('https://')) return;
+  try { fbStorage.refFromURL(url).delete().catch(function(){}); } catch(e) {}
+}
+
 
 // ═══════════════════════════════════════════
 // FIREBASE SLOT – hier später Config einfügen
@@ -2629,7 +2694,7 @@ function renderRegalFotoScreen() {
 
   // Fortschritt
   const done = gruppe.items.filter(function(item){
-    return existing.find(function(f){ return f.bereich===item && f.dataUrl; });
+    return existing.find(function(f){ return f.bereich===item && (f.dataUrl||f.fotoUrl); });
   }).length;
   const progDiv = document.createElement('div');
   progDiv.style.cssText = 'background:#e0f2f1;border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:12px;font-weight:700;color:#0f766e;';
@@ -2637,7 +2702,7 @@ function renderRegalFotoScreen() {
   body.appendChild(progDiv);
 
   gruppe.items.forEach(function(item) {
-    const foto = existing.find(function(f){ return f.bereich===item && f.dataUrl; });
+    const foto = existing.find(function(f){ return f.bereich===item && (f.dataUrl||f.fotoUrl); });
     const card = document.createElement('div');
     card.style.cssText = 'background:#fff;border-radius:11px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 6px rgba(0,0,0,.06);';
 
@@ -2649,7 +2714,14 @@ function renderRegalFotoScreen() {
     if(foto) {
       // Foto vorhanden – anzeigen
       const img = document.createElement('img');
-      img.src = foto.dataUrl;
+      img.src = foto.fotoUrl || foto.dataUrl;
+      if(!foto.fotoUrl && foto.dataUrl) {
+        // Upload läuft noch - Spinner zeigen
+        const spinner = document.createElement('div');
+        spinner.style.cssText = 'font-size:11px;color:#888;margin-bottom:4px;';
+        spinner.textContent = '⏳ Wird hochgeladen...';
+        card.appendChild(spinner);
+      }
       img.style.cssText = 'width:100%;border-radius:8px;margin-bottom:6px;max-height:160px;object-fit:cover;display:block;';
       card.appendChild(img);
       const col = foto.slStatus==='ok'?'#16a34a':foto.slStatus==='schlecht'?'#ef4444':'#888';
@@ -2709,18 +2781,43 @@ function handleRegalFoto(input, bereich) {
     const dataUrl = e.target.result;
     const gruppe = getTodayRegalGruppe();
     const today = new Date().toISOString().slice(0,10);
-    // Entferne altes Foto für diesen Bereich heute
+    const fotoId = 'rf'+Date.now();
+    const storagePath = 'regalfotos/'+today+'_'+bereich.replace(/[^a-zA-Z0-9]/g,'_')+'_'+fotoId+'.jpg';
+
+    // Eintrag sofort mit dataUrl (Fallback/Preview) anlegen
     regalFotos = regalFotos.filter(function(f){ return !(f.datum===today && f.bereich===bereich); });
-    regalFotos.push({
-      id:'rf'+Date.now(), ts:new Date().toLocaleString('de-DE'),
+    const eintrag = {
+      id:fotoId, ts:new Date().toLocaleString('de-DE'),
       datum:today, day:gruppe.day, group:gruppe.day, groupLabel:gruppe.label,
-      bereich:bereich, ma:st.name, dataUrl:dataUrl, slStatus:'', slKommentar:'', slTs:''
-    });
+      bereich:bereich, ma:st.name,
+      dataUrl:dataUrl,   // temporärer Preview
+      fotoUrl:null,      // wird nach Upload gesetzt
+      slStatus:'', slKommentar:'', slTs:''
+    };
+    regalFotos.push(eintrag);
     lsSave('regalFotos', regalFotos);
-    fbSave('regalFotos', regalFotos);
     renderRegalFotoScreen();
-    // Notification an SL
     updateSLBadge();
+
+    // Asynchron in Firebase Storage hochladen
+    if(fbStorage) {
+      uploadFotoToStorage(dataUrl, storagePath).then(function(url) {
+        const idx = regalFotos.findIndex(function(f){ return f.id===fotoId; });
+        if(idx !== -1) {
+          regalFotos[idx].fotoUrl = url;
+          delete regalFotos[idx].dataUrl; // Base64 entfernen, nur URL behalten
+          lsSave('regalFotos', regalFotos);
+          fbSave('regalFotos', regalFotos);
+          renderRegalFotoScreen();
+        }
+      }).catch(function(err) {
+        // Fallback: Base64 in Firestore speichern (wie vorher)
+        console.warn('[Storage] Upload fehlgeschlagen, speichere Base64:', err);
+        fbSave('regalFotos', regalFotos);
+      });
+    } else {
+      fbSave('regalFotos', regalFotos);
+    }
   };
   reader.readAsDataURL(file);
 }
@@ -2761,9 +2858,9 @@ function renderSLRegalBewertung() {
       meta.style.cssText = 'font-size:11px;color:#888;margin-bottom:6px;';
       meta.textContent = '📷 '+f.ma+' · '+f.ts;
       card.appendChild(meta);
-      if(f.dataUrl) {
+      if(f.fotoUrl || f.dataUrl) {
         const img = document.createElement('img');
-        img.src = f.dataUrl;
+        img.src = f.fotoUrl || f.dataUrl;
         img.style.cssText = 'width:100%;border-radius:8px;margin-bottom:8px;max-height:150px;object-fit:cover;display:block;';
         card.appendChild(img);
       }
@@ -2859,7 +2956,7 @@ function bewerteRegalSchlecht(id) {
       schicht:  schicht,
       datum:    heute,
       status:   'offen',
-      fotos:    [{id:id, dataUrl:regalFotos[idx].dataUrl,
+      fotos:    [{id:id, dataUrl:regalFotos[idx].fotoUrl||regalFotos[idx].dataUrl,
                   ma:regalFotos[idx].ma, ts:regalFotos[idx].ts}],
       verlauf:  [{ts:new Date().toLocaleString('de-DE'),
                   aktion:'abgelehnt', kommentar:weisung, schicht:schicht}]
@@ -3786,21 +3883,22 @@ function triggerUbCamera(fotoId) {
     if(!file) return;
     const reader = new FileReader();
     reader.onload = function(ev) {
-      // Komprimieren auf max 800px Breite
-      const img = new Image();
-      img.onload = function() {
-        const canvas = document.createElement('canvas');
-        const maxW = 800;
-        const scale = img.width > maxW ? maxW / img.width : 1;
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        ubFotoSession[fotoId] = canvas.toDataURL('image/jpeg', 0.7);
-        document.body.removeChild(input);
-        renderUbergabeFoto();
-      };
-      img.src = ev.target.result;
+      const dataUrl = ev.target.result;
+      const today = new Date().toISOString().slice(0,10);
+      const storagePath = 'ubergabe/'+today+'_'+fotoId+'_'+Date.now()+'.jpg';
+      // Sofort als dataUrl speichern (Preview)
+      ubFotoSession[fotoId] = dataUrl;
+      document.body.removeChild(input);
+      renderUbergabeFoto();
+      // Asynchron in Storage hochladen und URL ersetzen
+      if(fbStorage) {
+        uploadFotoToStorage(dataUrl, storagePath).then(function(url) {
+          ubFotoSession[fotoId] = url; // URL ersetzt Base64
+        }).catch(function(err) {
+          console.warn('[Storage] Übergabe-Foto Upload fehlgeschlagen:', err);
+          // Fallback: dataUrl bleibt in Session
+        });
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -7767,18 +7865,28 @@ function processBrettFotoFile(file) {
   if(!file) return;
   var reader = new FileReader();
   reader.onload = function(ev) {
-    var img = new Image();
-    img.onload = function() {
-      var canvas = document.createElement('canvas');
-      var maxW = 900;
-      var scale = img.width > maxW ? maxW/img.width : 1;
-      canvas.width = img.width*scale; canvas.height = img.height*scale;
-      canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
-      window._brettFoto = canvas.toDataURL('image/jpeg',0.75);
-      var prev = document.getElementById('brett-foto-preview');
-      if(prev) prev.innerHTML = '<img src="'+window._brettFoto+'" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;">';
-    };
-    img.src = ev.target.result;
+    var dataUrl = ev.target.result;
+    // Preview sofort anzeigen
+    window._brettFoto = dataUrl;
+    var prev = document.getElementById('brett-foto-preview');
+    if(prev) prev.innerHTML = '<img src="'+dataUrl+'" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;">'+
+      '<div style="font-size:11px;color:#888;margin-top:4px;" id="brett-foto-upload-status">⏳ Wird hochgeladen...</div>';
+    // Asynchron in Firebase Storage hochladen
+    if(fbStorage) {
+      var storagePath = 'brett/'+new Date().toISOString().slice(0,10)+'_'+Date.now()+'.jpg';
+      uploadFotoToStorage(dataUrl, storagePath).then(function(url) {
+        window._brettFoto = url; // URL ersetzt Base64
+        var statusEl = document.getElementById('brett-foto-upload-status');
+        if(statusEl) statusEl.textContent = '✅ Hochgeladen';
+      }).catch(function(err) {
+        console.warn('[Storage] Brett-Foto Upload fehlgeschlagen:', err);
+        var statusEl = document.getElementById('brett-foto-upload-status');
+        if(statusEl) statusEl.textContent = '⚠️ Lokal gespeichert';
+      });
+    } else {
+      var statusEl = document.getElementById('brett-foto-upload-status');
+      if(statusEl) statusEl.remove();
+    }
   };
   reader.readAsDataURL(file);
 }
@@ -8892,9 +9000,9 @@ function openRegalNachbesserung(id) {
 
   // Letztes SL-Foto anzeigen
   const letztesFoto = nb.fotos && nb.fotos[nb.fotos.length-1];
-  if(letztesFoto && letztesFoto.dataUrl) {
+  if(letztesFoto && (letztesFoto.fotoUrl||letztesFoto.dataUrl)) {
     const img = document.createElement('img');
-    img.src = letztesFoto.dataUrl;
+    img.src = letztesFoto.fotoUrl || letztesFoto.dataUrl;
     img.style.cssText = 'width:100%;border-radius:10px;margin-bottom:12px;max-height:180px;object-fit:cover;';
     card.appendChild(img);
   }
