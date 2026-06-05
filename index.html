@@ -1739,6 +1739,7 @@ let rollenAufgaben = lsLoad('rollenAufgaben', {
     {id:'sl_3',     section:'pause2', text:'Zweite Pause (vor Übergabe)',              warn:'', ub:false, special:'pause'},
     {id:'sl_4',     section:'ende',   text:'Tagesabschluss & Kassenabrechnung',        warn:'', ub:true},
     {id:'sl_5',     section:'ende',   text:'Schichtübergabe vorbereiten',              warn:'', ub:true, special:'ub'},
+    {id:'sl_6',     section:'woche',  text:'Freie Tage der Mitarbeiter in HR → Zeiten eintragen', warn:'⚠️ Einmal pro Woche – Gleitzeitkonto bleibt sonst falsch', ub:false},
   ],
 });
 
@@ -8716,9 +8717,10 @@ function renderHRZeiten() {
           var urlaub = urlaubAntraege.some(function(a){
             return a.ma===name && a.status==='genehmigt' && a.von<=ds && a.bis>=ds;
           });
-          var tagesIst = allEntries.filter(function(z){return z.datum===ds;})
-                          .reduce(function(s,z){return s+(z.nettoMin||0);},0);
-          if(urlaub) saldoMin += 0; // neutral
+          var tagesBuchungen = allEntries.filter(function(z){return z.datum===ds;});
+          var istFreiTagB = tagesBuchungen.some(function(z){return z.typ==='freitag';});
+          var tagesIst = tagesBuchungen.reduce(function(s,z){return s+(z.nettoMin||0);},0);
+          if(urlaub || istFreiTagB) saldoMin += 0; // neutral
           else saldoMin += tagesIst - sollTagMin;
         }
         d.setDate(d.getDate()+1);
@@ -8798,8 +8800,14 @@ function showMaZeitDetail(name) {
     fc.style.cssText = 'background:#fff;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 2px 7px rgba(0,0,0,.07);';
     fc.innerHTML =
       '<div style="font-size:13px;font-weight:800;color:#1e3a5f;margin-bottom:10px;">' + (editId ? 'Eintrag bearbeiten' : '+ Neuer Eintrag') + '</div>' +
+      '<label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Typ</label>' +
+      '<select id="ze-typ" onchange="document.getElementById(\'ze-felder\').style.display=this.value===\'freitag\'?\'none\':\'block\'" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:9px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:8px;">' +
+        '<option value="arbeit"' + ((!editEntry||editEntry.typ!=='freitag')?'selected':'') + '>⏱ Arbeitszeit</option>' +
+        '<option value="freitag"' + ((editEntry&&editEntry.typ==='freitag')?'selected':'') + '>🏖️ Freier Tag</option>' +
+      '</select>' +
       '<label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Datum</label>' +
       '<input type="date" id="ze-datum" value="' + (editEntry?editEntry.datum:today) + '" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:9px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:8px;">' +
+      '<div id="ze-felder" style="display:' + ((editEntry&&editEntry.typ==='freitag')?'none':'block') + '">' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
         '<div><label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Start</label>' +
         '<input type="time" id="ze-start" value="' + (editEntry?editEntry.istStart:'06:00') + '" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:9px;font-size:14px;font-family:inherit;box-sizing:border-box;"></div>' +
@@ -8808,6 +8816,7 @@ function showMaZeitDetail(name) {
       '</div>' +
       '<label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Pause (Minuten)</label>' +
       '<input type="number" id="ze-pause" min="0" max="120" value="' + (editEntry?(editEntry.pauseMin||0):30) + '" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:9px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:8px;">' +
+      '</div>' +
       '<label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Bemerkung (optional)</label>' +
       '<input type="text" id="ze-bem" value="' + (editEntry&&editEntry.grund?editEntry.grund:'') + '" placeholder="z.B. Vertretung" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:9px;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:8px;">' +
       '<div id="ze-preview" style="background:#f0f4ff;border-radius:8px;padding:8px;font-size:12px;color:#1e3a5f;margin-bottom:8px;"></div>';
@@ -8834,11 +8843,33 @@ function showMaZeitDetail(name) {
     saveBtn.textContent = editId ? 'Aenderung speichern' : 'Eintrag speichern';
     saveBtn.addEventListener('click', function(){
       var datum  = document.getElementById('ze-datum').value;
+      var bem    = document.getElementById('ze-bem').value.trim();
+      var typEl  = document.getElementById('ze-typ');
+      var istFreiTag = typEl && typEl.value === 'freitag';
+      if(!datum){alert('Bitte Datum eingeben.');return;}
+
+      if(istFreiTag) {
+        // Freier Tag: nettoMin = 0, typ = 'freitag'
+        var dow2=new Date(datum+'T12:00:00').getDay();
+        var tagTyp2=dow2===0?'so':isFeiertag(datum)?'ft':'wt';
+        // Entferne evtl. vorhandenen Eintrag für diesen Tag
+        zeiterfassung = zeiterfassung.filter(function(z){
+          return !(z.ma===name && z.datum===datum && z.typ==='freitag');
+        });
+        zeiterfassung.push({id:'ze'+Date.now(),ma:name,datum:datum,schicht:'',
+          tagTyp:tagTyp2,istStart:'',istEnd:'',grossMin:0,
+          pauseMin:0,nettoMin:0,grund:bem||'Freier Tag',
+          typ:'freitag',ts:new Date().toLocaleString('de-DE')});
+        lsSave('zeiterfassung',zeiterfassung);
+        fbSave('zeiterfassung',zeiterfassung);
+        render();
+        return;
+      }
+
       var startV = document.getElementById('ze-start').value;
       var endV   = document.getElementById('ze-end').value;
       var pauseV = parseInt(document.getElementById('ze-pause').value)||0;
-      var bem    = document.getElementById('ze-bem').value.trim();
-      if(!datum||!startV||!endV){alert('Bitte Datum, Start und Ende eingeben.');return;}
+      if(!startV||!endV){alert('Bitte Start und Ende eingeben.');return;}
       var sm=timeToMin(startV),em=timeToMin(endV);
       if(em<=sm)em+=24*60;
       var grossMin=em-sm, nettoMin=Math.max(0,grossMin-pauseV);
@@ -8851,6 +8882,7 @@ function showMaZeitDetail(name) {
           zeiterfassung[idx].istEnd=endV; zeiterfassung[idx].pauseMin=pauseV;
           zeiterfassung[idx].grossMin=grossMin; zeiterfassung[idx].nettoMin=nettoMin;
           zeiterfassung[idx].tagTyp=tagTyp; zeiterfassung[idx].grund=bem;
+          delete zeiterfassung[idx].typ; // sicherstellen kein alter freitag-Typ
         }
         editId=null;
       } else {
@@ -9711,20 +9743,21 @@ function calcGleitzeitSaldo(name) {
       });
       var istUrlaub = urlAntrag && urlAntrag.typ!=='gleitzeit';
       var istGleitzeit = urlAntrag && urlAntrag.typ==='gleitzeit';
-      var tagesIst = allE.filter(function(z){return z.datum===ds;})
-                      .reduce(function(s,z){return s+(z.nettoMin||0);},0);
+      var tagesEintraege = allE.filter(function(z){return z.datum===ds;});
+      var istFreiTagEintrag = tagesEintraege.some(function(z){return z.typ==='freitag';});
+      var tagesIst = tagesEintraege.reduce(function(s,z){return s+(z.nettoMin||0);},0);
       var tagSaldo;
-      if(istUrlaub) {
-        tagSaldo = 0; // Urlaubstag neutral
+      if(istUrlaub || istFreiTagEintrag) {
+        tagSaldo = 0; // Urlaubstag oder Freier Tag: neutral
       } else if(istGleitzeit) {
-        tagSaldo = -sollTagMin + tagesIst; // Gleitzeittag zieht Tagessoll ab
+        tagSaldo = -sollTagMin + tagesIst;
       } else {
         tagSaldo = tagesIst - sollTagMin;
       }
       saldo += tagSaldo;
       if(tagesIst>0 || istUrlaub || istGleitzeit) {
         tage.push({datum:ds, istMin:tagesIst, sollMin:sollTagMin,
-          saldoMin:tagSaldo, urlaub:istUrlaub, gleitzeit:istGleitzeit});
+          saldoMin:tagSaldo, urlaub:istUrlaub, gleitzeit:istGleitzeit, freitag:istFreiTagEintrag});
       }
     }
     d.setDate(d.getDate()+1);
@@ -9812,7 +9845,7 @@ function renderMaProfilDetails(name, body) {
       var dlbl = DAYS[d.getDay()]+' '+d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.';
       var sc = t.saldoMin>0?'#16a34a':t.saldoMin<0?'#ef4444':'#888';
       var ss = (t.saldoMin>0?'+':t.saldoMin<0?'-':'')+Math.floor(Math.abs(t.saldoMin)/60)+'h'+Math.abs(t.saldoMin)%60+'m';
-      var typeLabel = t.urlaub?'&#127796; Urlaub':t.gleitzeit?'&#9200; Gleitzeit':Math.floor(t.istMin/60)+'h'+t.istMin%60+'m';
+      var typeLabel = t.freitag?'🏖️ Freier Tag':t.urlaub?'&#127796; Urlaub':t.gleitzeit?'&#9200; Gleitzeit':Math.floor(t.istMin/60)+'h'+t.istMin%60+'m';
       var row = document.createElement('div');
       row.style.cssText = 'display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:12px;';
       row.innerHTML = '<span style="color:#555;min-width:70px;">'+dlbl+'</span>'+
