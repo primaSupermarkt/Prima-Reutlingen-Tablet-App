@@ -8711,18 +8711,30 @@ function renderHRZeiten() {
         var ds = d.toISOString().slice(0,10);
         var dow = d.getDay();
         var istFt = (typeof isFeiertag==='function') && isFeiertag(ds);
-        var _ft2 = prof.freiTage || [0];
-        if(_ft2.indexOf(dow)===-1 && !istFt) {
-          // Urlaubstag?
-          var urlaub = urlaubAntraege.some(function(a){
-            return a.ma===name && a.status==='genehmigt' && a.von<=ds && a.bis>=ds;
-          });
-          var tagesBuchungen = allEntries.filter(function(z){return z.datum===ds;});
-          var istFreiTagB = tagesBuchungen.some(function(z){return z.typ==='freitag';});
-          var tagesIst = tagesBuchungen.reduce(function(s,z){return s+(z.nettoMin||0);},0);
-          if(urlaub || istFreiTagB) saldoMin += 0; // neutral
-          else saldoMin += tagesIst - sollTagMin;
+        // Urlaubstag?
+        var urlaub = urlaubAntraege.some(function(a){
+          return a.ma===name && a.status==='genehmigt' && a.von<=ds && a.bis>=ds;
+        });
+        var tagesBuchungen = allEntries.filter(function(z){return z.datum===ds;});
+        var istFreiTagB = tagesBuchungen.some(function(z){return z.typ==='freitag';});
+        var tagesIst = tagesBuchungen.reduce(function(s,z){return s+(z.nettoMin||0);},0);
+        var hatEintrag = tagesBuchungen.length > 0;
+
+        // Krankmeldung für diesen Tag?
+        var krankmeldungen = (prof.krankmeldungen||[]);
+        var istKrank = krankmeldungen.some(function(k){return k.von<=ds && k.bis>=ds;});
+
+        if(urlaub || istKrank) {
+          saldoMin += 0; // Urlaub oder Krankmeldung: Soll gilt als erfüllt
+        } else if(istFreiTagB) {
+          saldoMin += 0; // Freier Tag: Soll gilt als erfüllt
+        } else if(istFt) {
+          saldoMin += 0; // Feiertag neutral
+        } else if(hatEintrag) {
+          // Nur wenn ein Arbeitseintrag da ist: Soll vs Ist vergleichen
+          saldoMin += tagesIst - sollTagMin;
         }
+        // Kein Eintrag, kein Urlaub, kein Feiertag, nicht krank → nichts abziehen
         d.setDate(d.getDate()+1);
       }
     }
@@ -8768,6 +8780,13 @@ function getWeekStart(d) {
   return mon.toISOString().slice(0,10);
 }
 
+function zeTypChange(val) {
+  var felder = document.getElementById('ze-felder');
+  var sollFelder = document.getElementById('ze-soll-felder');
+  if(felder) felder.style.display = (val==='freitag'||val==='krank') ? 'none' : 'block';
+  if(sollFelder) sollFelder.style.display = (val==='freitag'||val==='krank') ? 'block' : 'none';
+}
+
 function showMaZeitDetail(name) {
   var editId = null;
 
@@ -8801,9 +8820,10 @@ function showMaZeitDetail(name) {
     fc.innerHTML =
       '<div style="font-size:13px;font-weight:800;color:#1e3a5f;margin-bottom:10px;">' + (editId ? 'Eintrag bearbeiten' : '+ Neuer Eintrag') + '</div>' +
       '<label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Typ</label>' +
-      '<select id="ze-typ" onchange="document.getElementById(\'ze-felder\').style.display=this.value===\'freitag\'?\'none\':\'block\'" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:9px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:8px;">' +
+      '<select id="ze-typ" onchange="zeTypChange(this.value)" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:9px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:8px;">' +
         '<option value="arbeit"' + ((!editEntry||editEntry.typ!=='freitag')?'selected':'') + '>⏱ Arbeitszeit</option>' +
         '<option value="freitag"' + ((editEntry&&editEntry.typ==='freitag')?'selected':'') + '>🏖️ Freier Tag</option>' +
+        '<option value="krank"' + ((editEntry&&editEntry.typ==='krank')?'selected':'') + '>🤒 Krank (Einzeltag)</option>' +
       '</select>' +
       '<label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Datum</label>' +
       '<input type="date" id="ze-datum" value="' + (editEntry?editEntry.datum:today) + '" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:9px;font-size:14px;font-family:inherit;box-sizing:border-box;margin-bottom:8px;">' +
@@ -8819,6 +8839,11 @@ function showMaZeitDetail(name) {
       '</div>' +
       '<label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Bemerkung (optional)</label>' +
       '<input type="text" id="ze-bem" value="' + (editEntry&&editEntry.grund?editEntry.grund:'') + '" placeholder="z.B. Vertretung" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:9px;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:8px;">' +
+      '<div id="ze-soll-felder" style="display:' + ((editEntry&&(editEntry.typ==='freitag'||editEntry.typ==='krank'))?'block':'none') + ';margin-bottom:8px;">' +
+        '<div style="background:#fff3cd;border:1.5px solid #f0a500;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px;color:#7a4f00;font-weight:600;">💡 Nettoarbeitsstunden eintragen – werden als Sollzeit angerechnet</div>' +
+        '<label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Netto-Arbeitsstunden (z.B. 8.5)</label>' +
+        '<input type="number" id="ze-soll-std" step="0.5" min="0" max="24" value="' + (editEntry&&editEntry.sollStd?editEntry.sollStd:'') + '" placeholder="z.B. 8" style="width:100%;border:1.5px solid #ddd;border-radius:8px;padding:9px;font-size:14px;font-family:inherit;box-sizing:border-box;">' +
+      '</div>' +
       '<div id="ze-preview" style="background:#f0f4ff;border-radius:8px;padding:8px;font-size:12px;color:#1e3a5f;margin-bottom:8px;"></div>';
 
     function updatePreview(){
@@ -8848,18 +8873,23 @@ function showMaZeitDetail(name) {
       var istFreiTag = typEl && typEl.value === 'freitag';
       if(!datum){alert('Bitte Datum eingeben.');return;}
 
-      if(istFreiTag) {
-        // Freier Tag: nettoMin = 0, typ = 'freitag'
+      var typVal = typEl ? typEl.value : 'arbeit';
+      if(typVal === 'freitag' || typVal === 'krank') {
+        var sollStdEl = document.getElementById('ze-soll-std');
+        var sollStd = sollStdEl ? parseFloat(sollStdEl.value)||0 : 0;
+        var sollMin = Math.round(sollStd * 60);
         var dow2=new Date(datum+'T12:00:00').getDay();
         var tagTyp2=dow2===0?'so':isFeiertag(datum)?'ft':'wt';
-        // Entferne evtl. vorhandenen Eintrag für diesen Tag
+        // Entferne evtl. vorhandenen gleichen Eintrag für diesen Tag
         zeiterfassung = zeiterfassung.filter(function(z){
-          return !(z.ma===name && z.datum===datum && z.typ==='freitag');
+          return !(z.ma===name && z.datum===datum && z.typ===typVal);
         });
+        var label = typVal==='freitag' ? 'Freier Tag' : 'Krank';
         zeiterfassung.push({id:'ze'+Date.now(),ma:name,datum:datum,schicht:'',
-          tagTyp:tagTyp2,istStart:'',istEnd:'',grossMin:0,
-          pauseMin:0,nettoMin:0,grund:bem||'Freier Tag',
-          typ:'freitag',ts:new Date().toLocaleString('de-DE')});
+          tagTyp:tagTyp2,istStart:'',istEnd:'',grossMin:sollMin,
+          pauseMin:0,nettoMin:sollMin,  // nettoMin = Soll → Saldo bleibt 0
+          grund:bem||label, sollStd:sollStd,
+          typ:typVal,ts:new Date().toLocaleString('de-DE')});
         lsSave('zeiterfassung',zeiterfassung);
         fbSave('zeiterfassung',zeiterfassung);
         render();
@@ -9747,8 +9777,11 @@ function calcGleitzeitSaldo(name) {
       var istFreiTagEintrag = tagesEintraege.some(function(z){return z.typ==='freitag';});
       var tagesIst = tagesEintraege.reduce(function(s,z){return s+(z.nettoMin||0);},0);
       var tagSaldo;
-      if(istUrlaub || istFreiTagEintrag) {
-        tagSaldo = 0; // Urlaubstag oder Freier Tag: neutral
+      var _kranks = (prof.krankmeldungen||[]);
+      var istKrankGz = _kranks.some(function(k){return k.von<=ds && k.bis>=ds;});
+
+      if(istUrlaub || istFreiTagEintrag || istKrankGz) {
+        tagSaldo = 0; // Urlaubstag, Freier Tag oder Krank: neutral
       } else if(istGleitzeit) {
         tagSaldo = -sollTagMin + tagesIst;
       } else {
