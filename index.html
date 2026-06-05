@@ -976,6 +976,7 @@ const FB_KEYS = [
   'maKompetenzen',
   'adminPw',
   'slPw',
+  'lastDailyReset',
   'slTasks',
   'zeiterfassung',
   'maProfiles',
@@ -1010,7 +1011,13 @@ function applyFirebaseData(key, val) {
       case 'history':            history = val; break;
       case 'ubergaben':          ubergaben = val; break;
       case 'umsatzData':         umsatzData = val; break;
-      case 'slCheckState':       slCheckState = val; break;
+      case 'slCheckState': {
+        const todayReset4 = lsLoad('lastDailyReset','');
+        const todayStr4   = new Date().toISOString().slice(0,10);
+        if(todayReset4 === todayStr4) break;
+        slCheckState = val;
+        break;
+      }
       case 'tempHistory':        tempHistory = val; break;
       case 'slushHistory':       slushHistory = val; break;
       case 'kaffeeHistory':      kaffeeHistory = val; break;
@@ -1050,13 +1057,41 @@ function applyFirebaseData(key, val) {
       case 'slTasks':            slTasks = val; break;
       case 'zeiterfassung':      zeiterfassung = val; break;
       case 'maProfiles':         maProfiles = val; break;
-      case 'activeLogins':       activeLogins = val; break;
+      case 'activeLogins': {
+        // Ignorieren wenn heute bereits ein Reset durchgeführt wurde
+        const todayReset = lsLoad('lastDailyReset','');
+        const todayStr2  = new Date().toISOString().slice(0,10);
+        if(todayReset === todayStr2) break; // Reset war heute - alte Daten ignorieren
+        activeLogins = val;
+        break;
+      }
       // rollenAufgaben wird nicht per onSnapshot synchronisiert (siehe initRollenAufgaben)
-      case 'clState':            if(val&&typeof val==='object') Object.assign(clState,val); break;
-      case 'clState':            if(val&&typeof val==='object') Object.assign(clState,val); break;
-      case 'clState':            if(val&&typeof val==='object') { Object.assign(clState, val); } break;
+      case 'clState': {
+        const todayReset3 = lsLoad('lastDailyReset','');
+        const todayStr3   = new Date().toISOString().slice(0,10);
+        if(todayReset3 === todayStr3) break;
+        if(val&&typeof val==='object') Object.assign(clState,val);
+        break;
+      }
       case 'DP':                 if(val&&val.mitarbeiter) DP.mitarbeiter=val.mitarbeiter; if(val&&val.weeks) DP.weeks=val.weeks; if(val&&val.budget!==undefined) DP.budget=val.budget; if(val&&val.activeWeek) DP.activeWeek=val.activeWeek; try{localStorage.setItem('prima_dp_v1',JSON.stringify(DP));}catch(e){} renderDP(); break;
       case 'names':              if(val&&val.length){ names=val; lsSave('names',names); } break;
+      case 'lastDailyReset':
+        // Reset-Datum synchronisieren - wenn Firebase ein neueres Datum hat, lokal übernehmen
+        if(val && typeof val==='string') {
+          const localReset = lsLoad('lastDailyReset','');
+          if(val > localReset) {
+            // Ein anderes Gerät hat heute schon resettet - wir übernehmen das
+            localStorage.setItem('prima_lastDailyReset', JSON.stringify(val));
+            if(val === new Date().toISOString().slice(0,10)) {
+              // Heute wurde bereits resettet - lokale Daten leeren
+              activeLogins = {}; clState = {}; slCheckState = {};
+              lsSave('activeLogins',{}); lsSave('clState',{}); lsSave('slCheckState',{});
+              try{ renderHomeActiveCL(); }catch(e){}
+              try{ if(window._slLoggedIn) renderSL(); }catch(e){}
+            }
+          }
+        }
+        return; // Nicht weiter in localStorage speichern
       case 'adminPw':            if(val&&typeof val==='string'&&val.length>=3){ ADMIN_PW=val; localStorage.setItem('prima_adminPw',val); } break;
       case 'slPw':               if(val&&typeof val==='string'&&val.length>=3){ SL_PW=val; localStorage.setItem('prima_slPw',val); } break;
     }
@@ -1867,16 +1902,22 @@ function saveFirstRunSetup() {
 // und dann im 60-Sekunden-Interval zur Laufzeit.
 // ═══════════════════════════════════════════
 function doMidnightReset(){
+  const todayStr = new Date().toISOString().slice(0,10);
   activeLogins = {};
   clState      = {};
   slCheckState = {};
+  // Lokal leeren
   lsSave('activeLogins', activeLogins);
   lsSave('clState',      clState);
   lsSave('slCheckState', slCheckState);
+  lsSave('lastDailyReset', todayStr);
+  // Reset-Datum in Firebase schreiben damit alle Geräte wissen: heute schon resettet
+  fbSave('lastDailyReset', todayStr);
+  // Leere Werte in Firebase schreiben (überschreibt alte Daten)
   fbSave('activeLogins', activeLogins);
   fbSave('clState',      clState);
   fbSave('slCheckState', slCheckState);
-  lsSave('lastDailyReset', new Date().toISOString().slice(0,10));
+  // UI aktualisieren
   try{ renderHomeActiveCL(); }catch(e){}
   try{ if(window._slLoggedIn) renderSL(); }catch(e){}
   console.log('[Prima] Tages-Reset durchgeführt um', new Date().toLocaleTimeString('de-DE'));
@@ -1885,11 +1926,10 @@ function doMidnightReset(){
 function checkDailyReset(){
   const now  = new Date();
   const h    = now.getHours();
-  const m    = now.getMinutes();
   const todayStr = now.toISOString().slice(0,10);
   const lastReset = lsLoad('lastDailyReset', '');
   // Reset auslösen wenn: Uhrzeit >= 02:00 und heute noch kein Reset gemacht
-  if((h > 2 || (h === 2 && m >= 0)) && lastReset !== todayStr){
+  if(h >= 2 && lastReset !== todayStr){
     doMidnightReset();
   }
 }
@@ -4673,6 +4713,39 @@ function renderSL(){
   };
   reportDiv.appendChild(screenshotBtn);
   body.appendChild(reportDiv);
+
+  // ── TAGES-RESET BUTTON ──
+  const resetSec = document.createElement('div');
+  resetSec.style.cssText = 'margin-top:18px;';
+
+  const _rNow = new Date();
+  const _rH = _rNow.getHours();
+  const _rToday = _rNow.toISOString().slice(0,10);
+  const _rLast = lsLoad('lastDailyReset','');
+  const resetNoetig = _rH >= 2 && _rLast !== _rToday;
+
+  const resetBtn = document.createElement('button');
+  resetBtn.style.cssText = 'width:100%;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;' +
+    (resetNoetig
+      ? 'background:#ef4444;color:#fff;'
+      : 'background:#f0f0f0;color:#aaa;cursor:not-allowed;');
+  resetBtn.innerHTML = resetNoetig
+    ? '🔄 Tages-Reset jetzt durchführen'
+    : '✅ Heute bereits zurückgesetzt (' + (_rLast || '–') + ')';
+
+  if(resetNoetig) {
+    resetBtn.addEventListener('click', function() {
+      if(confirm('Alle aktiven Logins, Checklisten und SL-Aufgaben zurücksetzen?
+
+Das entspricht dem automatischen 02:00-Uhr-Reset.')) {
+        doMidnightReset();
+        renderSL(); // Dashboard neu laden
+      }
+    });
+  }
+
+  resetSec.appendChild(resetBtn);
+  body.appendChild(resetSec);
 }
 
 // ═══════════════════════════════════════════
