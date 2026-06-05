@@ -1726,6 +1726,45 @@ function resumeCL(name){
 }
 
 function safeTick(){try{tick();renderHomeActiveCL();}catch(e){}} safeTick();setInterval(safeTick,30000);
+
+// ═══════════════════════════════════════════
+// TAGES-RESET UM 02:00 UHR
+// Setzt activeLogins, clState und slCheckState zurück.
+// Läuft beim App-Start (falls seit letztem Reset ein neuer Tag begonnen hat)
+// und dann im 60-Sekunden-Interval zur Laufzeit.
+// ═══════════════════════════════════════════
+function doMidnightReset(){
+  activeLogins = {};
+  clState      = {};
+  slCheckState = {};
+  lsSave('activeLogins', activeLogins);
+  lsSave('clState',      clState);
+  lsSave('slCheckState', slCheckState);
+  fbSave('activeLogins', activeLogins);
+  fbSave('clState',      clState);
+  fbSave('slCheckState', slCheckState);
+  lsSave('lastDailyReset', new Date().toISOString().slice(0,10));
+  try{ renderHomeActiveCL(); }catch(e){}
+  try{ if(window._slLoggedIn) renderSL(); }catch(e){}
+  console.log('[Prima] Tages-Reset durchgeführt um', new Date().toLocaleTimeString('de-DE'));
+}
+
+function checkDailyReset(){
+  const now  = new Date();
+  const h    = now.getHours();
+  const m    = now.getMinutes();
+  const todayStr = now.toISOString().slice(0,10);
+  const lastReset = lsLoad('lastDailyReset', '');
+  // Reset auslösen wenn: Uhrzeit >= 02:00 und heute noch kein Reset gemacht
+  if((h > 2 || (h === 2 && m >= 0)) && lastReset !== todayStr){
+    doMidnightReset();
+  }
+}
+
+// Beim Start sofort prüfen
+checkDailyReset();
+// Dann alle 60 Sekunden prüfen (für laufende Sessions die 02:00 überschreiten)
+setInterval(checkDailyReset, 60000);
 window.addEventListener('online', function(){ if(!fbReady) initFirebase(); });
 window.addEventListener('online', function() { if(!fbReady) initFirebase(); });
 
