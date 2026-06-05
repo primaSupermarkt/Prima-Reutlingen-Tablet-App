@@ -1012,9 +1012,10 @@ function applyFirebaseData(key, val) {
       case 'ubergaben':          ubergaben = val; break;
       case 'umsatzData':         umsatzData = val; break;
       case 'slCheckState': {
-        const todayReset4 = lsLoad('lastDailyReset','');
-        const todayStr4   = new Date().toISOString().slice(0,10);
-        if(todayReset4 === todayStr4) break;
+        const _slToday = new Date().toISOString().slice(0,10);
+        const _slReset = localStorage.getItem('prima_lastDailyReset');
+        const _slResetDate = _slReset ? JSON.parse(_slReset) : '';
+        if(_slResetDate === _slToday) break;
         slCheckState = val;
         break;
       }
@@ -1059,17 +1060,19 @@ function applyFirebaseData(key, val) {
       case 'maProfiles':         maProfiles = val; break;
       case 'activeLogins': {
         // Ignorieren wenn heute bereits ein Reset durchgeführt wurde
-        const todayReset = lsLoad('lastDailyReset','');
-        const todayStr2  = new Date().toISOString().slice(0,10);
-        if(todayReset === todayStr2) break; // Reset war heute - alte Daten ignorieren
+        const _alToday = new Date().toISOString().slice(0,10);
+        const _alReset = localStorage.getItem('prima_lastDailyReset');
+        const _alResetDate = _alReset ? JSON.parse(_alReset) : '';
+        if(_alResetDate === _alToday) break;
         activeLogins = val;
         break;
       }
       // rollenAufgaben wird nicht per onSnapshot synchronisiert (siehe initRollenAufgaben)
       case 'clState': {
-        const todayReset3 = lsLoad('lastDailyReset','');
-        const todayStr3   = new Date().toISOString().slice(0,10);
-        if(todayReset3 === todayStr3) break;
+        const _clToday = new Date().toISOString().slice(0,10);
+        const _clReset = localStorage.getItem('prima_lastDailyReset');
+        const _clResetDate = _clReset ? JSON.parse(_clReset) : '';
+        if(_clResetDate === _clToday) break;
         if(val&&typeof val==='object') Object.assign(clState,val);
         break;
       }
@@ -1906,18 +1909,22 @@ function doMidnightReset(){
   activeLogins = {};
   clState      = {};
   slCheckState = {};
-  // Lokal leeren
-  lsSave('activeLogins', activeLogins);
-  lsSave('clState',      clState);
-  lsSave('slCheckState', slCheckState);
-  lsSave('lastDailyReset', todayStr);
-  // Reset-Datum in Firebase schreiben damit alle Geräte wissen: heute schon resettet
-  fbSave('lastDailyReset', todayStr);
-  // Leere Werte in Firebase schreiben (überschreibt alte Daten)
-  fbSave('activeLogins', activeLogins);
-  fbSave('clState',      clState);
-  fbSave('slCheckState', slCheckState);
-  // UI aktualisieren
+  // 1. Datum sofort in localStorage - damit applyFirebaseData die Daten ab jetzt ignoriert
+  localStorage.setItem('prima_lastDailyReset', JSON.stringify(todayStr));
+  // 2. Lokal leeren
+  localStorage.setItem('prima_activeLogins',  JSON.stringify({}));
+  localStorage.setItem('prima_clState',       JSON.stringify({}));
+  localStorage.setItem('prima_slCheckState',  JSON.stringify({}));
+  // 3. In Firebase direkt überschreiben
+  if(fbReady && db) {
+    var empty = JSON.stringify({});
+    var ts = Date.now();
+    db.collection('prima').doc('lastDailyReset').set({data: JSON.stringify(todayStr), ts: ts}).catch(function(){});
+    db.collection('prima').doc('activeLogins').set({data: empty, ts: ts}).catch(function(){});
+    db.collection('prima').doc('clState').set({data: empty, ts: ts}).catch(function(){});
+    db.collection('prima').doc('slCheckState').set({data: empty, ts: ts}).catch(function(){});
+  }
+  // 4. UI sofort aktualisieren
   try{ renderHomeActiveCL(); }catch(e){}
   try{ if(window._slLoggedIn) renderSL(); }catch(e){}
   console.log('[Prima] Tages-Reset durchgeführt um', new Date().toLocaleTimeString('de-DE'));
@@ -1934,7 +1941,8 @@ function checkDailyReset(){
   }
 }
 
-// Beim Start sofort prüfen
+// Beim Start sofort prüfen - BEVOR Firebase-Daten geladen werden
+// Damit weiß applyFirebaseData ob es heute schon einen Reset gab
 checkDailyReset();
 checkFirstRun(); // Ersteinrichtung falls noch kein PIN gesetzt
 // Dann alle 60 Sekunden prüfen (für laufende Sessions die 02:00 überschreiten)
