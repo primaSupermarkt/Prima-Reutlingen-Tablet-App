@@ -8710,7 +8710,8 @@ function renderHRZeiten() {
         var ds = d.toISOString().slice(0,10);
         var dow = d.getDay();
         var istFt = (typeof isFeiertag==='function') && isFeiertag(ds);
-        if(dow!==0 && !istFt) {
+        var _ft2 = prof.freiTage || [0];
+        if(_ft2.indexOf(dow)===-1 && !istFt) {
           // Urlaubstag?
           var urlaub = urlaubAntraege.some(function(a){
             return a.ma===name && a.status==='genehmigt' && a.von<=ds && a.bis>=ds;
@@ -9586,6 +9587,17 @@ function renderHRProfile() {
         '<input type="date" id="prof-eintritt-'+name+'" value="'+(prof.eintrittsDatum||'')+'" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;outline:none;">'+
         '<div id="prof-urlaub-hint-'+name+'" style="font-size:11px;margin-top:5px;padding:7px 10px;border-radius:7px;background:#f0f4ff;color:#1e3a5f;font-weight:600;display:none;"></div>'+
       '</div>'+
+      '<div style="margin-bottom:10px;">'+
+        '<label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:5px;">Freie Wochentage (kein Arbeitstag)</label>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;" id="prof-freitage-'+name+'">'+
+        ['Mo','Di','Mi','Do','Fr','Sa','So'].map(function(tag,i){
+          var dayNum = [1,2,3,4,5,6,0][i];
+          var checked = (prof.freiTage||[]).indexOf(dayNum)!==-1 ? 'checked' : '';
+          return '<label style="display:inline-flex;align-items:center;gap:4px;background:#f4f4f4;border:1.5px solid #e0e0e0;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;">'+
+            '<input type="checkbox" data-day="'+dayNum+'" '+checked+' style="width:15px;height:15px;margin:0;"> '+tag+'</label>';
+        }).join('')+
+        '</div>'+
+      '</div>'+
       '<button onclick="saveMaProfile(this.dataset.name)" data-name="'+name+'" style="width:100%;background:#1e3a5f;color:#fff;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">💾 Speichern</button>'+
       '</div>';
   });
@@ -9622,6 +9634,20 @@ function saveMaProfile(name) {
   maProfiles[name].eintrittsDatum = document.getElementById('prof-eintritt-'+name).value||'';
   maProfiles[name].pin = document.getElementById('prof-pin-'+name).value;
   const planSel=document.getElementById('prof-plan-'+name);if(planSel) maProfiles[name].zuschlagsPlanId=planSel.value;
+  // Freie Wochentage speichern
+  var freiContainer = document.getElementById('prof-freitage-'+name);
+  if(freiContainer) {
+    var freiTage = [];
+    freiContainer.querySelectorAll('input[type=checkbox]').forEach(function(cb){
+      if(cb.checked) freiTage.push(parseInt(cb.getAttribute('data-day')));
+    });
+    maProfiles[name].freiTage = freiTage;
+    // Tagessoll basierend auf Arbeitstagen/Woche neu berechnen
+    var arbeitstage = 7 - freiTage.length;
+    if(arbeitstage > 0 && maProfiles[name].stundenSoll > 0) {
+      maProfiles[name].sollTagMin = Math.round(maProfiles[name].stundenSoll * 60 / arbeitstage);
+    }
+  }
   lsSave('maProfiles',maProfiles);
   fbSave('maProfiles',maProfiles);
   showSaveAnimation(null);
@@ -9676,7 +9702,9 @@ function calcGleitzeitSaldo(name) {
     var ds = d.toISOString().slice(0,10);
     var dow = d.getDay();
     var istFt = typeof isFeiertag==='function' && isFeiertag(ds);
-    if(dow!==0&&!istFt) {
+    var freiTage = prof.freiTage || [0]; // Standard: Sonntag frei
+    var istFreiTag = freiTage.indexOf(dow) !== -1;
+    if(!istFreiTag && !istFt) {
       // Genehmigter Urlaub oder Gleitzeittag?
       var urlAntrag = urlaubAntraege.find(function(a){
         return a.ma===name && a.status==='genehmigt' && a.von<=ds && a.bis>=ds;
