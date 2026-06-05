@@ -8821,8 +8821,10 @@ function renderHRZeiten() {
     var saldoMin = 0;
     var fehlendeTage = [];
     if(sollTagMin > 0) {
+      var gesternD = new Date(); gesternD.setDate(gesternD.getDate()-1);
+      var gesternStr = gesternD.toISOString().slice(0,10);
       var d = new Date(KONTO_START+'T12:00:00');
-      var endD = new Date(todayStr+'T12:00:00');
+      var endD = new Date(gesternStr+'T12:00:00');
       while(d <= endD) {
         var ds = d.toISOString().slice(0,10);
         var istFt = (typeof isFeiertag==='function') && isFeiertag(ds);
@@ -9887,8 +9889,10 @@ function calcGleitzeitSaldo(name) {
   var heute = new Date().toISOString().slice(0,10);
   var KONTO_START2 = '2026-06-01';
   var saldo=0, tage=[];
+  var gesternGz = new Date(); gesternGz.setDate(gesternGz.getDate()-1);
+  var gesternStrGz = gesternGz.toISOString().slice(0,10);
   var d = new Date(KONTO_START2+'T12:00:00');
-  var endD = new Date(heute+'T12:00:00');
+  var endD = new Date(gesternStrGz+'T12:00:00');
   while(d<=endD) {
     var ds = d.toISOString().slice(0,10);
     var dow = d.getDay();
