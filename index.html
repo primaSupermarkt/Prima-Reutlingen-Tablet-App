@@ -1056,7 +1056,16 @@ function applyFirebaseData(key, val) {
       case 'mitarbeiterZeugen':  mitarbeiterZeugen = val; break;
       case 'strafantraege':      strafantraege = val; break;
       case 'slTasks':            slTasks = val; break;
-      case 'zeiterfassung':      zeiterfassung = val; break;
+      case 'zeiterfassung':
+        zeiterfassung = val;
+        // HR-Zeiten neu rendern wenn Tab offen
+        try {
+          var hrPane = document.getElementById('hr-tab-zeiten');
+          if(hrPane && hrPane.style.display !== 'none' && hrPane.innerHTML !== '') {
+            renderHRZeiten();
+          }
+        } catch(e) {}
+        break;
       case 'maProfiles':         maProfiles = val; break;
       case 'activeLogins': {
         // Ignorieren wenn heute bereits ein Reset durchgeführt wurde
