@@ -4066,9 +4066,25 @@ function submitUbergabeFoto() {
 function updateSLBadge(){
   const badge=document.getElementById('sl-badge');
   if(!badge) return;
-  const issues=ubergaben.filter(u=>u.status==='open'||u.status==='rejected').length;
-  const unread=mitarbeiterNachrichten.filter(m=>!m.gelesen).length;
-  const total=issues+unread;
+  const todayStr = new Date().toISOString().slice(0,10);
+  const issues=ubergaben.filter(function(u){
+    // Nur heutige offene/abgelehnte Übergaben
+    return (u.status==='open'||u.status==='rejected') && u.ts && u.ts.includes(new Date().toLocaleDateString('de-DE').slice(0,6));
+  }).length;
+  const unread=mitarbeiterNachrichten.filter(function(m){
+    // Nur ungelesene Nachrichten von heute
+    if(m.gelesen) return false;
+    try {
+      var parts = m.ts.split(', ')[0].split('.');
+      var msgDate = parts[2]+'-'+parts[1].padStart(2,'0')+'-'+parts[0].padStart(2,'0');
+      return msgDate === todayStr;
+    } catch(e) { return true; }
+  }).length;
+  // Offene Stempel (eingestempelt aber nicht ausgestempelt)
+  const offeneStempel = zeiterfassung.filter(function(z){
+    return z.datum===todayStr && z.typ==='stempel' && z.istStart && !z.istEnd;
+  }).length;
+  const total=issues+unread+offeneStempel;
   badge.style.display=total>0?'block':'none';
   badge.textContent=total;
 }
@@ -4208,6 +4224,28 @@ function renderSL(){
   liveBlock.innerHTML=liveHTML;
   body.appendChild(liveBlock);
 
+
+  // ── OFFENE STEMPEL ──
+  var todayStr = new Date().toISOString().slice(0,10);
+  var offeneStempel = zeiterfassung.filter(function(z){
+    return z.datum===todayStr && z.typ==='stempel' && z.istStart && !z.istEnd;
+  });
+  if(offeneStempel.length > 0) {
+    var stSec = document.createElement('div');
+    stSec.style.cssText = 'font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#ef4444;margin-bottom:6px;margin-top:10px;';
+    stSec.textContent = '⚠️ Offene Stempel – kein Ausstempeln!';
+    body.appendChild(stSec);
+    var stCard = document.createElement('div');
+    stCard.style.cssText = 'background:#fff5f5;border:2px solid #ef4444;border-radius:12px;padding:12px;box-shadow:0 2px 7px rgba(0,0,0,.06);margin-bottom:10px;';
+    offeneStempel.forEach(function(z){
+      var row = document.createElement('div');
+      row.style.cssText = 'padding:7px 0;border-bottom:1px solid #fee2e2;font-size:13px;display:flex;justify-content:space-between;align-items:center;';
+      row.innerHTML = '<div><b>'+z.ma+'</b> · eingestempelt '+z.istStart+' Uhr</div>'+
+        '<div style="font-size:11px;color:#ef4444;font-weight:700;">kein Gehen ❌</div>';
+      stCard.appendChild(row);
+    });
+    body.appendChild(stCard);
+  }
 
   // ── ÜBERGABE-ÜBERSICHT ──
   const recentUB = ubergaben.filter(function(u){
@@ -8799,7 +8837,8 @@ function renderHRZeiten() {
         // Nur echte Arbeitseinträge für Ist-Berechnung
         var arbeitsEintraege = tagesBuchungen.filter(function(z){
           return z.typ!=='freitag' && z.typ!=='krank' &&
-                 !(z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank'));
+                 !(z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank')) &&
+                 !(z.typ==='stempel' && (!z.nettoMin||z.nettoMin===0)); // offene Stempel ignorieren
         });
         var tagesIstArbeit = arbeitsEintraege.reduce(function(s,z){return s+(z.nettoMin||0);},0);
         var hatArbeitsEintrag = arbeitsEintraege.length > 0;
@@ -8844,7 +8883,7 @@ function renderHRZeiten() {
           '<div style="font-size:10px;color:#888;">Tagessoll</div></div>' +
       '</div>' +
       '<button onclick="showMaZeitDetail(this.dataset.name)" data-name="' + name + '" style="width:100%;background:#1e3a5f;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;margin-top:10px;font-family:inherit;">&#128203; Details / Eintrag hinzuf&uuml;gen</button>' +
-      '<button onclick="debugSaldo(this.dataset.name)" data-name="' + name + '" style="width:100%;background:#f59e0b;color:#fff;border:none;border-radius:9px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;margin-top:6px;font-family:inherit;">🔍 Saldo-Debug</button>' +
+
       '</div>';
   });
 
@@ -9858,7 +9897,8 @@ function calcGleitzeitSaldo(name) {
       });
       var arbeitsEintraegeGz = tagesEintraege.filter(function(z){
         return z.typ!=='freitag' && z.typ!=='krank' &&
-               !(z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank'));
+               !(z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank')) &&
+               !(z.typ==='stempel' && (!z.nettoMin||z.nettoMin===0));
       });
       var tagesIst = arbeitsEintraegeGz.reduce(function(s,z){return s+(z.nettoMin||0);},0);
       var tagSaldo;
