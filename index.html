@@ -1056,32 +1056,7 @@ function applyFirebaseData(key, val) {
       case 'mitarbeiterZeugen':  mitarbeiterZeugen = val; break;
       case 'strafantraege':      strafantraege = val; break;
       case 'slTasks':            slTasks = val; break;
-      case 'zeiterfassung':
-        zeiterfassung = val;
-        // Repariere alte Freier-Tag-Einträge die noch kein typ-Feld haben
-        var _zeFixed = false;
-        zeiterfassung.forEach(function(z){
-          if(z.grund && (z.grund==='Freier Tag'||z.grund==='Krank')) {
-            if(!z.typ) {
-              z.typ = z.grund==='Freier Tag' ? 'freitag' : 'krank';
-              _zeFixed = true;
-            }
-            // nettoMin auf Tagessoll setzen falls noch 0
-            if(z.nettoMin===0 && z.ma) {
-              var _p = maProfiles[z.ma]||{};
-              var _s = _p.stundenSoll||0;
-              if(_s>0) {
-                var _arbT = 7 - (_p.freiTage||[]).length;
-                var _stMin = Math.round(_s*60/(_arbT>0?_arbT:5));
-                z.nettoMin = _stMin;
-                z.grossMin = _stMin;
-                _zeFixed = true;
-              }
-            }
-          }
-        });
-        if(_zeFixed) { lsSave('zeiterfassung', zeiterfassung); fbSave('zeiterfassung', zeiterfassung); }
-        break;
+      case 'zeiterfassung':      zeiterfassung = val; break;
       case 'maProfiles':         maProfiles = val; break;
       case 'activeLogins': {
         // Ignorieren wenn heute bereits ein Reset durchgeführt wurde
@@ -8749,17 +8724,27 @@ function renderHRZeiten() {
         var krankmeldungen = (prof.krankmeldungen||[]);
         var istKrank = krankmeldungen.some(function(k){return k.von<=ds && k.bis>=ds;});
 
-        if(urlaub || istKrank) {
-          saldoMin += 0; // Urlaub oder Krankmeldung: Soll gilt als erfüllt
-        } else if(istFreiTagB) {
-          saldoMin += 0; // Freier Tag: Soll gilt als erfüllt
+        // Freier Tag erkennen: typ='freitag' ODER grund enthält 'Freier Tag' (alte Einträge)
+        var istFreiTagBuchung = tagesBuchungen.some(function(z){
+          return z.typ==='freitag' || z.typ==='krank' ||
+                 (z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank'));
+        });
+        // Nur echte Arbeitseinträge für Ist-Berechnung
+        var arbeitsEintraege = tagesBuchungen.filter(function(z){
+          return z.typ!=='freitag' && z.typ!=='krank' &&
+                 !(z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank'));
+        });
+        var tagesIstArbeit = arbeitsEintraege.reduce(function(s,z){return s+(z.nettoMin||0);},0);
+        var hatArbeitsEintrag = arbeitsEintraege.length > 0;
+
+        if(urlaub || istKrank || istFreiTagBuchung) {
+          saldoMin += 0; // Neutral: Urlaub, Krank oder Freier Tag
         } else if(istFt) {
           saldoMin += 0; // Feiertag neutral
-        } else if(hatEintrag) {
-          // Nur wenn ein Arbeitseintrag da ist: Soll vs Ist vergleichen
-          saldoMin += tagesIst - sollTagMin;
+        } else if(hatArbeitsEintrag) {
+          saldoMin += tagesIstArbeit - sollTagMin;
         }
-        // Kein Eintrag, kein Urlaub, kein Feiertag, nicht krank → nichts abziehen
+        // Kein Eintrag → nichts abziehen
         d.setDate(d.getDate()+1);
       }
     }
@@ -9799,8 +9784,15 @@ function calcGleitzeitSaldo(name) {
       var istUrlaub = urlAntrag && urlAntrag.typ!=='gleitzeit';
       var istGleitzeit = urlAntrag && urlAntrag.typ==='gleitzeit';
       var tagesEintraege = allE.filter(function(z){return z.datum===ds;});
-      var istFreiTagEintrag = tagesEintraege.some(function(z){return z.typ==='freitag';});
-      var tagesIst = tagesEintraege.reduce(function(s,z){return s+(z.nettoMin||0);},0);
+      var istFreiTagEintrag = tagesEintraege.some(function(z){
+        return z.typ==='freitag' || z.typ==='krank' ||
+               (z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank'));
+      });
+      var arbeitsEintraegeGz = tagesEintraege.filter(function(z){
+        return z.typ!=='freitag' && z.typ!=='krank' &&
+               !(z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank'));
+      });
+      var tagesIst = arbeitsEintraegeGz.reduce(function(s,z){return s+(z.nettoMin||0);},0);
       var tagSaldo;
       var _kranks = (prof.krankmeldungen||[]);
       var istKrankGz = _kranks.some(function(k){return k.von<=ds && k.bis>=ds;});
