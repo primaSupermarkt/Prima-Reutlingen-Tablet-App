@@ -1056,7 +1056,32 @@ function applyFirebaseData(key, val) {
       case 'mitarbeiterZeugen':  mitarbeiterZeugen = val; break;
       case 'strafantraege':      strafantraege = val; break;
       case 'slTasks':            slTasks = val; break;
-      case 'zeiterfassung':      zeiterfassung = val; break;
+      case 'zeiterfassung':
+        zeiterfassung = val;
+        // Repariere alte Freier-Tag-Einträge die noch kein typ-Feld haben
+        var _zeFixed = false;
+        zeiterfassung.forEach(function(z){
+          if(z.grund && (z.grund==='Freier Tag'||z.grund==='Krank')) {
+            if(!z.typ) {
+              z.typ = z.grund==='Freier Tag' ? 'freitag' : 'krank';
+              _zeFixed = true;
+            }
+            // nettoMin auf Tagessoll setzen falls noch 0
+            if(z.nettoMin===0 && z.ma) {
+              var _p = maProfiles[z.ma]||{};
+              var _s = _p.stundenSoll||0;
+              if(_s>0) {
+                var _arbT = 7 - (_p.freiTage||[]).length;
+                var _stMin = Math.round(_s*60/(_arbT>0?_arbT:5));
+                z.nettoMin = _stMin;
+                z.grossMin = _stMin;
+                _zeFixed = true;
+              }
+            }
+          }
+        });
+        if(_zeFixed) { lsSave('zeiterfassung', zeiterfassung); fbSave('zeiterfassung', zeiterfassung); }
+        break;
       case 'maProfiles':         maProfiles = val; break;
       case 'activeLogins': {
         // Ignorieren wenn heute bereits ein Reset durchgeführt wurde
