@@ -8806,51 +8806,47 @@ function renderHRZeiten() {
     var sollWocheH = prof.stundenSoll||0;
     var sollTagMin = sollWocheH>0 ? Math.round(sollWocheH*60/5) : 0;
 
-    // Gleitzeitkonto: tagesgenau ab erstem Eintrag
+    // Gleitzeitkonto: ab 01.06.2026, JEDER Tag zählt (inkl. Sonntag)
+    // Fehlende Einträge = Minus + Hinweis
+    var KONTO_START = '2026-06-01';
     var saldoMin = 0;
-    if(allEntries.length && sollTagMin > 0) {
-      var erstDatum = allEntries.slice().sort(function(a,b){return a.datum<b.datum?-1:1;})[0].datum;
-      var d = new Date(erstDatum+'T12:00:00');
+    var fehlendeTage = [];
+    if(sollTagMin > 0) {
+      var d = new Date(KONTO_START+'T12:00:00');
       var endD = new Date(todayStr+'T12:00:00');
       while(d <= endD) {
         var ds = d.toISOString().slice(0,10);
-        var dow = d.getDay();
         var istFt = (typeof isFeiertag==='function') && isFeiertag(ds);
-        // Urlaubstag?
         var urlaub = urlaubAntraege.some(function(a){
           return a.ma===name && a.status==='genehmigt' && a.von<=ds && a.bis>=ds;
         });
         var tagesBuchungen = allEntries.filter(function(z){return z.datum===ds;});
-        var istFreiTagB = tagesBuchungen.some(function(z){return z.typ==='freitag';});
-        var tagesIst = tagesBuchungen.reduce(function(s,z){return s+(z.nettoMin||0);},0);
-        var hatEintrag = tagesBuchungen.length > 0;
-
-        // Krankmeldung für diesen Tag?
-        var krankmeldungen = (prof.krankmeldungen||[]);
-        var istKrank = krankmeldungen.some(function(k){return k.von<=ds && k.bis>=ds;});
-
-        // Freier Tag erkennen: typ='freitag' ODER grund enthält 'Freier Tag' (alte Einträge)
         var istFreiTagBuchung = tagesBuchungen.some(function(z){
           return z.typ==='freitag' || z.typ==='krank' ||
                  (z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank'));
         });
-        // Nur echte Arbeitseinträge für Ist-Berechnung
         var arbeitsEintraege = tagesBuchungen.filter(function(z){
           return z.typ!=='freitag' && z.typ!=='krank' &&
                  !(z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank')) &&
-                 !(z.typ==='stempel' && (!z.nettoMin||z.nettoMin===0)); // offene Stempel ignorieren
+                 !(z.typ==='stempel' && (!z.nettoMin||z.nettoMin===0));
         });
         var tagesIstArbeit = arbeitsEintraege.reduce(function(s,z){return s+(z.nettoMin||0);},0);
         var hatArbeitsEintrag = arbeitsEintraege.length > 0;
+        var krankmeldungen = (prof.krankmeldungen||[]);
+        var istKrank = krankmeldungen.some(function(k){return k.von<=ds && k.bis>=ds;});
+        var hatIrgendwas = tagesBuchungen.length > 0 || urlaub || istKrank;
 
         if(urlaub || istKrank || istFreiTagBuchung) {
-          saldoMin += 0; // Neutral: Urlaub, Krank oder Freier Tag
+          saldoMin += 0; // Neutral
         } else if(istFt) {
           saldoMin += 0; // Feiertag neutral
         } else if(hatArbeitsEintrag) {
           saldoMin += tagesIstArbeit - sollTagMin;
+        } else {
+          // Kein Eintrag → voller Minus + Hinweis
+          saldoMin -= sollTagMin;
+          fehlendeTage.push(ds);
         }
-        // Kein Eintrag → nichts abziehen
         d.setDate(d.getDate()+1);
       }
     }
@@ -8882,6 +8878,13 @@ function renderHRZeiten() {
           '<div style="font-size:13px;font-weight:700;color:#1e3a5f;">' + (sollTagMin?Math.floor(sollTagMin/60)+'h'+(sollTagMin%60?sollTagMin%60+'m':''):'–') + '</div>' +
           '<div style="font-size:10px;color:#888;">Tagessoll</div></div>' +
       '</div>' +
+      (fehlendeTage.length > 0 ?
+        '<div style="background:#fff3cd;border:1.5px solid #f0a500;border-radius:9px;padding:9px 12px;margin-top:8px;font-size:12px;color:#7a4f00;font-weight:600;">' +
+        '⚠️ ' + fehlendeTage.length + ' Tag(e) ohne Eintrag: ' +
+        fehlendeTage.slice(0,3).map(function(d){return d.slice(8)+'.'+d.slice(5,7)+'.';}).join(', ') +
+        (fehlendeTage.length > 3 ? ' ...' : '') +
+        '<br><span style="font-size:11px;font-weight:400;">Bitte nachtragen: Arbeit, Freier Tag oder Krank</span></div>'
+      : '') +
       '<button onclick="showMaZeitDetail(this.dataset.name)" data-name="' + name + '" style="width:100%;background:#1e3a5f;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;margin-top:10px;font-family:inherit;">&#128203; Details / Eintrag hinzuf&uuml;gen</button>' +
 
       '</div>';
@@ -9873,9 +9876,9 @@ function calcGleitzeitSaldo(name) {
   var allE = zeiterfassung.filter(function(z){return z.ma===name;});
   if(!allE.length) return {saldoMin:0, tage:[]};
   var heute = new Date().toISOString().slice(0,10);
-  var erst = allE.slice().sort(function(a,b){return a.datum<b.datum?-1:1;})[0].datum;
+  var KONTO_START2 = '2026-06-01';
   var saldo=0, tage=[];
-  var d = new Date(erst+'T12:00:00');
+  var d = new Date(KONTO_START2+'T12:00:00');
   var endD = new Date(heute+'T12:00:00');
   while(d<=endD) {
     var ds = d.toISOString().slice(0,10);
@@ -9905,15 +9908,19 @@ function calcGleitzeitSaldo(name) {
       var _kranks = (prof.krankmeldungen||[]);
       var istKrankGz = _kranks.some(function(k){return k.von<=ds && k.bis>=ds;});
 
+      var hatArbeitsEintragGz = arbeitsEintraegeGz.length > 0;
+      var hatIrgendwasGz = tagesEintraege.length > 0 || istUrlaub || istKrankGz;
       if(istUrlaub || istFreiTagEintrag || istKrankGz) {
-        tagSaldo = 0; // Urlaubstag, Freier Tag oder Krank: neutral
+        tagSaldo = 0; // Neutral
       } else if(istGleitzeit) {
         tagSaldo = -sollTagMin + tagesIst;
-      } else {
+      } else if(hatArbeitsEintragGz) {
         tagSaldo = tagesIst - sollTagMin;
+      } else {
+        tagSaldo = -sollTagMin; // Kein Eintrag = voller Minus
       }
       saldo += tagSaldo;
-      if(tagesIst>0 || istUrlaub || istGleitzeit) {
+      if(tagesIst>0 || istUrlaub || istGleitzeit || !hatIrgendwasGz) {
         tage.push({datum:ds, istMin:tagesIst, sollMin:sollTagMin,
           saldoMin:tagSaldo, urlaub:istUrlaub, gleitzeit:istGleitzeit, freitag:istFreiTagEintrag});
       }
@@ -9985,6 +9992,80 @@ function renderMaProfilDetails(name, body) {
     (pending>0?'<div style="background:#fff7ed;border-radius:9px;padding:8px 12px;font-size:12px;color:#92400e;margin-bottom:12px;">&#9203; '+pending+' Tag(e) ausstehend (noch nicht genehmigt)</div>':'')+
     // Offene Anträge
     '';
+
+
+  // ── ZUSCHLÄGE DIESEN MONAT ──
+  var thisMonth = new Date().toISOString().slice(0,7);
+  var monthZE = zeiterfassung.filter(function(z){
+    return z.ma===name && z.datum && z.datum.startsWith(thisMonth) &&
+           z.istStart && z.istEnd && z.nettoMin > 0;
+  });
+
+  var totalNachtMin=0, totalSoMin=0, totalFtMin=0;
+  var brutto = prof.bruttoGehalt||0;
+  var sollWocheHz = prof.stundenSoll||0;
+  var stundenlohn = (brutto && sollWocheHz) ? Math.round((brutto*12)/(sollWocheHz*52)*100)/100 : 0;
+  var planId = prof.zuschlagsPlanId||'';
+
+  monthZE.forEach(function(z){
+    if(!z.istStart||!z.istEnd) return;
+    var sm = timeToMin(z.istStart);
+    var em = timeToMin(z.istEnd);
+    if(em <= sm) em += 24*60;
+    var dow = new Date(z.datum+'T12:00:00').getDay();
+    var tagTyp = (typeof isFeiertag==='function'&&isFeiertag(z.datum)) ? 'ft' : dow===0 ? 'so' : 'wt';
+    var zz = calcZuschlaege(z.datum, sm, em, tagTyp, planId);
+    totalNachtMin += zz.nachtMin;
+    totalSoMin    += zz.soMin;
+    totalFtMin    += zz.ftMin;
+  });
+
+  var plan = getZuschlagsPlan(planId);
+  var pNacht = (plan.nacht||0);
+  var pSo    = (plan.sonntag||0);
+  var pFt    = (plan.feiertag||0);
+
+  var euroNacht = stundenlohn * (totalNachtMin/60) * pNacht/100;
+  var euroSo    = stundenlohn * (totalSoMin/60)    * pSo/100;
+  var euroFt    = stundenlohn * (totalFtMin/60)    * pFt/100;
+  var euroGes   = euroNacht + euroSo + euroFt;
+
+  var moName = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'][new Date().getMonth()];
+
+  var zuschlagHtml =
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">💰 Zuschläge ' + moName + '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">';
+
+  // Nacht
+  zuschlagHtml += '<div style="background:#0f172a;border-radius:9px;padding:10px;text-align:center;">' +
+    '<div style="font-size:10px;color:#94a3b8;margin-bottom:3px;">🌙 Nacht</div>' +
+    '<div style="font-size:15px;font-weight:900;color:#e2e8f0;">' + Math.floor(totalNachtMin/60) + 'h ' + (totalNachtMin%60) + 'm</div>' +
+    '<div style="font-size:10px;color:#64748b;margin-top:2px;">' + pNacht + '% · ' + (stundenlohn>0?euroNacht.toFixed(2)+'€':'–') + '</div></div>';
+
+  // Sonntag
+  zuschlagHtml += '<div style="background:#1e3a5f;border-radius:9px;padding:10px;text-align:center;">' +
+    '<div style="font-size:10px;color:#93c5fd;margin-bottom:3px;">☀️ Sonntag</div>' +
+    '<div style="font-size:15px;font-weight:900;color:#dbeafe;">' + Math.floor(totalSoMin/60) + 'h ' + (totalSoMin%60) + 'm</div>' +
+    '<div style="font-size:10px;color:#6b9fd4;margin-top:2px;">' + pSo + '% · ' + (stundenlohn>0?euroSo.toFixed(2)+'€':'–') + '</div></div>';
+
+  // Feiertag
+  zuschlagHtml += '<div style="background:#3b1f00;border-radius:9px;padding:10px;text-align:center;">' +
+    '<div style="font-size:10px;color:#fcd34d;margin-bottom:3px;">🎉 Feiertag</div>' +
+    '<div style="font-size:15px;font-weight:900;color:#fef3c7;">' + Math.floor(totalFtMin/60) + 'h ' + (totalFtMin%60) + 'm</div>' +
+    '<div style="font-size:10px;color:#d97706;margin-top:2px;">' + pFt + '% · ' + (stundenlohn>0?euroFt.toFixed(2)+'€':'–') + '</div></div>';
+
+  zuschlagHtml += '</div>';
+
+  if(euroGes > 0) {
+    zuschlagHtml += '<div style="background:linear-gradient(135deg,#064e3b,#065f46);border-radius:9px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+      '<div style="font-size:12px;color:#a7f3d0;font-weight:700;">Gesamt Zuschläge ' + moName + '</div>' +
+      '<div style="font-size:20px;font-weight:900;color:#6ee7b7;">+' + euroGes.toFixed(2) + ' €</div></div>';
+  } else {
+    zuschlagHtml += '<div style="font-size:11px;color:#888;margin-bottom:12px;padding:8px;background:#f5f5f5;border-radius:8px;">Noch keine Zuschlagsstunden in ' + moName + ' erfasst.</div>';
+  }
+
+
+  card.innerHTML += zuschlagHtml;
 
   // Gleitzeit-Historie Toggle
   if(gz.tage.length > 0) {
