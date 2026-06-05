@@ -4734,21 +4734,21 @@ function renderSL(){
 
   const resetBtn = document.createElement('button');
   resetBtn.style.cssText = 'width:100%;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;' +
-    (resetNoetig
-      ? 'background:#ef4444;color:#fff;'
-      : 'background:#f0f0f0;color:#aaa;cursor:not-allowed;');
+    (resetNoetig ? 'background:#ef4444;color:#fff;' : 'background:#1e3a5f;color:#fff;');
   resetBtn.innerHTML = resetNoetig
     ? '🔄 Tages-Reset jetzt durchführen'
-    : '✅ Heute bereits zurückgesetzt (' + (_rLast || '–') + ')';
+    : '🔄 Manuell zurücksetzen (heute bereits: ' + (_rLast || '–') + ')';
 
-  if(resetNoetig) {
-    resetBtn.addEventListener('click', function() {
-      if(confirm('Alle aktiven Logins, Checklisten und SL-Aufgaben zurücksetzen?\n\nDas entspricht dem automatischen 02:00-Uhr-Reset.')) {
-        doMidnightReset();
-        renderSL();
-      }
-    });
-  }
+  resetBtn.addEventListener('click', function() {
+    var msg = resetNoetig
+      ? 'Alle aktiven Logins, Checklisten und SL-Aufgaben zurücksetzen?'
+      : 'Heute wurde bereits zurückgesetzt. Trotzdem nochmal alles zurücksetzen?';
+    if(confirm(msg)) {
+      localStorage.removeItem('prima_lastDailyReset');
+      doMidnightReset();
+      renderSL();
+    }
+  });
 
   resetSec.appendChild(resetBtn);
   body.appendChild(resetSec);
