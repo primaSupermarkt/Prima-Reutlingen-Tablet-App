@@ -1057,6 +1057,8 @@ function applyFirebaseData(key, val) {
       case 'clState':            if(val&&typeof val==='object') { Object.assign(clState, val); } break;
       case 'DP':                 if(val&&val.mitarbeiter) DP.mitarbeiter=val.mitarbeiter; if(val&&val.weeks) DP.weeks=val.weeks; if(val&&val.budget!==undefined) DP.budget=val.budget; if(val&&val.activeWeek) DP.activeWeek=val.activeWeek; try{localStorage.setItem('prima_dp_v1',JSON.stringify(DP));}catch(e){} renderDP(); break;
       case 'names':              if(val&&val.length){ names=val; lsSave('names',names); } break;
+      case 'adminPw':            if(val&&typeof val==='string'&&val.length>=3){ ADMIN_PW=val; localStorage.setItem('prima_adminPw',val); } break;
+      case 'slPw':               if(val&&typeof val==='string'&&val.length>=3){ SL_PW=val; localStorage.setItem('prima_slPw',val); } break;
     }
     // Save to localStorage as cache
     try { localStorage.setItem('prima_'+key, JSON.stringify(val)); } catch(e) {}
@@ -1163,8 +1165,10 @@ function deleteFotoFromStorage(url) {
 // ═══════════════════════════════════════════
 // DATA
 // ═══════════════════════════════════════════
-let ADMIN_PW = localStorage.getItem('prima_adminPw') || '1992';
-let SL_PW    = localStorage.getItem('prima_slPw')    || '2511';
+// PINs werden ausschließlich aus localStorage geladen – keine Hardcoded-Defaults.
+// Beim ersten Start zeigt checkFirstRun() einen Setup-Assistenten.
+let ADMIN_PW = localStorage.getItem('prima_adminPw') || '';
+let SL_PW    = localStorage.getItem('prima_slPw')    || '';
 let editingTaskId = null;
 
 // In-memory data (wird später durch Firebase ersetzt)
@@ -1792,6 +1796,70 @@ function resumeCL(name){
 
 function safeTick(){try{tick();renderHomeActiveCL();}catch(e){}} safeTick();setInterval(safeTick,30000);
 
+
+// ═══════════════════════════════════════════
+// FIRST-RUN SETUP
+// Wird beim Start aufgerufen wenn noch kein Admin-PIN gesetzt ist.
+// Zeigt einen Einrichtungs-Assistenten.
+// ═══════════════════════════════════════════
+function checkFirstRun() {
+  if(ADMIN_PW && SL_PW) return; // Bereits eingerichtet
+  // Kurz warten bis DOM geladen
+  setTimeout(function() {
+    showFirstRunSetup();
+  }, 800);
+}
+
+function showFirstRunSetup() {
+  const ov = document.createElement('div');
+  ov.id = 'ov-firstrun';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:18px;padding:24px 20px;width:100%;max-width:380px;';
+  box.innerHTML =
+    '<div style="font-size:22px;font-weight:900;margin-bottom:4px;">🔐 Ersteinrichtung</div>'+
+    '<div style="font-size:13px;color:#666;margin-bottom:20px;">Bitte lege einmalig die PINs fest. Diese werden sicher in Firebase gespeichert und stehen nie mehr im Code.</div>'+
+    '<div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px;">Admin-PIN (du als Inhaber)</div>'+
+    '<input id="setup-admin-pin" type="password" inputmode="numeric" maxlength="20" placeholder="Mind. 4 Zeichen" style="width:100%;border:2px solid #e0e0e0;border-radius:10px;padding:12px;font-size:16px;font-family:inherit;margin-bottom:12px;outline:none;box-sizing:border-box;">'+
+    '<div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px;">Schichtleiter-PIN</div>'+
+    '<input id="setup-sl-pin" type="password" inputmode="numeric" maxlength="20" placeholder="Mind. 4 Zeichen" style="width:100%;border:2px solid #e0e0e0;border-radius:10px;padding:12px;font-size:16px;font-family:inherit;margin-bottom:6px;outline:none;box-sizing:border-box;">'+
+    '<div style="font-size:11px;color:#888;margin-bottom:16px;">Tipp: Verwende unterschiedliche PINs.</div>'+
+    '<div id="setup-err" style="display:none;background:#fee2e2;border-radius:8px;padding:8px 12px;font-size:12px;color:#dc2626;font-weight:700;margin-bottom:10px;"></div>'+
+    '<button onclick="saveFirstRunSetup()" style="width:100%;background:#0f0f0f;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;">✅ PINs speichern & starten</button>';
+
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  setTimeout(function(){ const el=document.getElementById('setup-admin-pin'); if(el) el.focus(); }, 100);
+}
+
+function saveFirstRunSetup() {
+  const adminVal = (document.getElementById('setup-admin-pin')||{}).value || '';
+  const slVal    = (document.getElementById('setup-sl-pin')||{}).value || '';
+  const errEl    = document.getElementById('setup-err');
+
+  if(adminVal.length < 4) {
+    if(errEl){ errEl.style.display='block'; errEl.textContent='Admin-PIN muss mindestens 4 Zeichen haben.'; } return;
+  }
+  if(slVal.length < 4) {
+    if(errEl){ errEl.style.display='block'; errEl.textContent='Schichtleiter-PIN muss mindestens 4 Zeichen haben.'; } return;
+  }
+  if(adminVal === slVal) {
+    if(errEl){ errEl.style.display='block'; errEl.textContent='Admin-PIN und SL-PIN müssen unterschiedlich sein.'; } return;
+  }
+
+  ADMIN_PW = adminVal;
+  SL_PW    = slVal;
+  localStorage.setItem('prima_adminPw', adminVal);
+  localStorage.setItem('prima_slPw',    slVal);
+  fbSave('adminPw', adminVal);
+  fbSave('slPw',    slVal);
+
+  const ov = document.getElementById('ov-firstrun');
+  if(ov) document.body.removeChild(ov);
+  alert('✅ PINs gespeichert. Die App ist jetzt einsatzbereit.');
+}
+
 // ═══════════════════════════════════════════
 // TAGES-RESET UM 02:00 UHR
 // Setzt activeLogins, clState und slCheckState zurück.
@@ -1828,6 +1896,7 @@ function checkDailyReset(){
 
 // Beim Start sofort prüfen
 checkDailyReset();
+checkFirstRun(); // Ersteinrichtung falls noch kein PIN gesetzt
 // Dann alle 60 Sekunden prüfen (für laufende Sessions die 02:00 überschreiten)
 setInterval(checkDailyReset, 60000);
 window.addEventListener('online', function(){ if(!fbReady) initFirebase(); });
@@ -4617,6 +4686,7 @@ function askAdmin(){
 }
 
 function checkPw(){
+  if(!ADMIN_PW || !SL_PW){ closeOv('ov-pw'); showFirstRunSetup(); return; }
   const disp=document.getElementById('pw-pin-display');
   const val=disp?disp.getAttribute('data-pin')||'':'';
   if(pwTarget==='admin'&&val===ADMIN_PW){pwPinReset();closeOv('ov-pw');renderAdmin();go('s-admin');}
@@ -6493,9 +6563,9 @@ function changeAdminPw(){
   const val=document.getElementById('new-admin-pw').value.trim();
   if(!val){alert('Bitte neues Passwort eingeben.');return;}
   if(val.length<3){alert('Passwort muss mindestens 3 Zeichen haben.');return;}
-  ADMIN_PW=val; lsSave('adminPw',val);
+  ADMIN_PW=val; lsSave('adminPw',val); fbSave('adminPw',val);
   $set('new-admin-pw', 'value', '');
-  alert('✅ Admin-Passwort gespeichert.');
+  alert('✅ Admin-PIN gespeichert.');
 }
 function saveRegalTarget() {
   const val = parseInt(document.getElementById('regal-target-inp').value);
@@ -6511,9 +6581,9 @@ function changeSLPw(){
   const val=document.getElementById('new-sl-pw').value.trim();
   if(!val){alert('Bitte neues Passwort eingeben.');return;}
   if(val.length<3){alert('Passwort muss mindestens 3 Zeichen haben.');return;}
-  SL_PW=val; lsSave('slPw',val);
+  SL_PW=val; lsSave('slPw',val); fbSave('slPw',val);
   $set('new-sl-pw', 'value', '');
-  alert('✅ Schichtleiter-Passwort gespeichert.');
+  alert('✅ Schichtleiter-PIN gespeichert.');
 }
 
 // ═══════════════════════════════════════════
