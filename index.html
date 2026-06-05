@@ -4735,11 +4735,9 @@ function renderSL(){
 
   if(resetNoetig) {
     resetBtn.addEventListener('click', function() {
-      if(confirm('Alle aktiven Logins, Checklisten und SL-Aufgaben zurücksetzen?
-
-Das entspricht dem automatischen 02:00-Uhr-Reset.')) {
+      if(confirm('Alle aktiven Logins, Checklisten und SL-Aufgaben zurücksetzen?\n\nDas entspricht dem automatischen 02:00-Uhr-Reset.')) {
         doMidnightReset();
-        renderSL(); // Dashboard neu laden
+        renderSL();
       }
     });
   }
