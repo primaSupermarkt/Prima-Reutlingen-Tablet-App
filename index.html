@@ -997,12 +997,14 @@ const FB_KEYS = [
 ];
 
 function fbSave(key, val) {
+  var now = Date.now();
   try { localStorage.setItem('prima_'+key, JSON.stringify(val)); } catch(e) {}
+  try { localStorage.setItem('prima_ts_'+key, String(now)); } catch(e) {}
   if(!fbReady||!db) return;
   try {
-    db.collection('prima').doc(key).set({data:JSON.stringify(val),ts:Date.now()})
-      .catch(function(){});
-  } catch(e){}
+    db.collection('prima').doc(key).set({data:JSON.stringify(val),ts:now})
+      .catch(function(err){ console.warn('[fbSave] Fehler bei', key, err); });
+  } catch(e){ console.warn('[fbSave] Exception bei', key, e); }
 }
 
 function applyFirebaseData(key, val) {
@@ -1123,6 +1125,13 @@ function syncFromFirebase() {
           if(doc.exists) {
             try {
               const fbData = doc.data();
+              const fbTs = fbData.ts || 0;
+              // Lokalen Timestamp prüfen - neuere lokale Daten NICHT überschreiben
+              const localTs = parseInt(localStorage.getItem('prima_ts_'+key)||'0');
+              if(fbTs < localTs - 2000) {
+                // Firebase-Daten sind älter als lokale (>2s) → ignorieren
+                return;
+              }
               const val = JSON.parse(fbData.data);
               applyFirebaseData(key, val);
             } catch(e) { /* ignore parse errors */ }
@@ -9885,7 +9894,7 @@ function calcGleitzeitSaldo(name) {
   var sollTagMin = sollWocheH>0 ? Math.round(sollWocheH*60/5) : 0;
   if(!sollTagMin) return {saldoMin:0, tage:[]};
   var allE = zeiterfassung.filter(function(z){return z.ma===name;});
-  if(!allE.length) return {saldoMin:0, tage:[]};
+  // Nicht früh abbrechen - auch ohne Einträge fehlende Tage als Minus zählen
   var heute = new Date().toISOString().slice(0,10);
   var KONTO_START2 = '2026-06-01';
   var saldo=0, tage=[];
@@ -9895,49 +9904,42 @@ function calcGleitzeitSaldo(name) {
   var endD = new Date(gesternStrGz+'T12:00:00');
   while(d<=endD) {
     var ds = d.toISOString().slice(0,10);
-    var dow = d.getDay();
     var istFt = typeof isFeiertag==='function' && isFeiertag(ds);
-    var freiTage = prof.freiTage || [0]; // Standard: Sonntag frei
-    var istFreiTag = freiTage.indexOf(dow) !== -1;
-    if(!istFreiTag && !istFt) {
-      // Genehmigter Urlaub oder Gleitzeittag?
-      var urlAntrag = urlaubAntraege.find(function(a){
-        return a.ma===name && a.status==='genehmigt' && a.von<=ds && a.bis>=ds;
-      });
-      var istUrlaub = urlAntrag && urlAntrag.typ!=='gleitzeit';
-      var istGleitzeit = urlAntrag && urlAntrag.typ==='gleitzeit';
-      var tagesEintraege = allE.filter(function(z){return z.datum===ds;});
-      var istFreiTagEintrag = tagesEintraege.some(function(z){
-        return z.typ==='freitag' || z.typ==='krank' ||
-               (z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank'));
-      });
-      var arbeitsEintraegeGz = tagesEintraege.filter(function(z){
-        return z.typ!=='freitag' && z.typ!=='krank' &&
-               !(z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank')) &&
-               !(z.typ==='stempel' && (!z.nettoMin||z.nettoMin===0));
-      });
-      var tagesIst = arbeitsEintraegeGz.reduce(function(s,z){return s+(z.nettoMin||0);},0);
-      var tagSaldo;
-      var _kranks = (prof.krankmeldungen||[]);
-      var istKrankGz = _kranks.some(function(k){return k.von<=ds && k.bis>=ds;});
+    // Genehmigter Urlaub oder Gleitzeittag?
+    var urlAntrag = urlaubAntraege.find(function(a){
+      return a.ma===name && a.status==='genehmigt' && a.von<=ds && a.bis>=ds;
+    });
+    var istUrlaub = urlAntrag && urlAntrag.typ!=='gleitzeit';
+    var istGleitzeit = urlAntrag && urlAntrag.typ==='gleitzeit';
+    var tagesEintraege = allE.filter(function(z){return z.datum===ds;});
+    var istFreiTagEintrag = tagesEintraege.some(function(z){
+      return z.typ==='freitag' || z.typ==='krank' ||
+             (z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank'));
+    });
+    var arbeitsEintraegeGz = tagesEintraege.filter(function(z){
+      return z.typ!=='freitag' && z.typ!=='krank' &&
+             !(z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank')) &&
+             !(z.typ==='stempel' && (!z.nettoMin||z.nettoMin===0));
+    });
+    var tagesIst = arbeitsEintraegeGz.reduce(function(s,z){return s+(z.nettoMin||0);},0);
+    var tagSaldo;
+    var _kranks = (prof.krankmeldungen||[]);
+    var istKrankGz = _kranks.some(function(k){return k.von<=ds && k.bis>=ds;});
+    var hatArbeitsEintragGz = arbeitsEintraegeGz.length > 0;
 
-      var hatArbeitsEintragGz = arbeitsEintraegeGz.length > 0;
-      var hatIrgendwasGz = tagesEintraege.length > 0 || istUrlaub || istKrankGz;
-      if(istUrlaub || istFreiTagEintrag || istKrankGz) {
-        tagSaldo = 0; // Neutral
-      } else if(istGleitzeit) {
-        tagSaldo = -sollTagMin + tagesIst;
-      } else if(hatArbeitsEintragGz) {
-        tagSaldo = tagesIst - sollTagMin;
-      } else {
-        tagSaldo = -sollTagMin; // Kein Eintrag = voller Minus
-      }
-      saldo += tagSaldo;
-      if(tagesIst>0 || istUrlaub || istGleitzeit || !hatIrgendwasGz) {
-        tage.push({datum:ds, istMin:tagesIst, sollMin:sollTagMin,
-          saldoMin:tagSaldo, urlaub:istUrlaub, gleitzeit:istGleitzeit, freitag:istFreiTagEintrag});
-      }
+    if(istUrlaub || istFreiTagEintrag || istKrankGz || istFt) {
+      tagSaldo = 0; // Neutral
+    } else if(istGleitzeit) {
+      tagSaldo = -sollTagMin + tagesIst;
+    } else if(hatArbeitsEintragGz) {
+      tagSaldo = tagesIst - sollTagMin;
+    } else {
+      tagSaldo = -sollTagMin; // Kein Eintrag = voller Minus
     }
+    saldo += tagSaldo;
+    tage.push({datum:ds, istMin:tagesIst, sollMin:sollTagMin,
+      saldoMin:tagSaldo, urlaub:istUrlaub, gleitzeit:istGleitzeit, freitag:istFreiTagEintrag,
+      fehlt: !hatArbeitsEintragGz && !istUrlaub && !istFreiTagEintrag && !istKrankGz && !istFt});
     d.setDate(d.getDate()+1);
   }
   return {saldoMin:saldo, tage:tage};
