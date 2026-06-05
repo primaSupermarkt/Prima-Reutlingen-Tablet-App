@@ -8678,6 +8678,73 @@ function hrTab(tab) {
 
 function renderHR() { hrTab(currentHRTab); }
 
+
+// ═══════════════════════════════════════════
+// SALDO DEBUG
+// ═══════════════════════════════════════════
+function debugSaldo(name) {
+  var prof = maProfiles[name]||{};
+  var sollWocheH = prof.stundenSoll||0;
+  var sollTagMin = sollWocheH>0 ? Math.round(sollWocheH*60/5) : 0;
+  var allE = zeiterfassung.filter(function(z){return z.ma===name;});
+  var heute = new Date().toISOString().slice(0,10);
+
+  if(!allE.length) { alert('Keine Einträge für '+name); return; }
+
+  var erst = allE.slice().sort(function(a,b){return a.datum<b.datum?-1:1;})[0].datum;
+  var lines = ['🔍 Saldo-Debug: '+name, 'Soll/Woche: '+sollWocheH+'h → Tagessoll: '+Math.round(sollTagMin/60*10)/10+'h ('+sollTagMin+'min)', 'Erster Eintrag: '+erst, ''];
+
+  var saldo = 0;
+  var d = new Date(erst+'T12:00:00');
+  var endD = new Date(heute+'T12:00:00');
+
+  while(d <= endD) {
+    var ds = d.toISOString().slice(0,10);
+    var tagesE = allE.filter(function(z){return z.datum===ds;});
+
+    if(tagesE.length > 0) {
+      tagesE.forEach(function(z) {
+        lines.push('📅 '+ds+': id='+z.id);
+        lines.push('   typ="'+(z.typ||'(leer)') + '" grund="'+(z.grund||'(leer')+'"');
+        lines.push('   nettoMin='+z.nettoMin+' istStart="'+(z.istStart||'')+'"');
+      });
+
+      var istFreiTag = tagesE.some(function(z){
+        return z.typ==='freitag'||z.typ==='krank'||
+               (z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank'));
+      });
+      var arbeitsE = tagesE.filter(function(z){
+        return z.typ!=='freitag'&&z.typ!=='krank'&&
+               !(z.grund&&(z.grund.indexOf('Freier Tag')!==-1||z.grund==='Krank'));
+      });
+      var tagesIst = arbeitsE.reduce(function(s,z){return s+(z.nettoMin||0);},0);
+      var tagSaldo = istFreiTag ? 0 : (tagesIst - sollTagMin);
+      saldo += tagSaldo;
+
+      lines.push('   → istFreiTag='+istFreiTag+' | tagesIst='+tagesIst+'min | tagSaldo='+tagSaldo+'min');
+      lines.push('   → kumulierter Saldo: '+saldo+'min');
+      lines.push('');
+    }
+    d.setDate(d.getDate()+1);
+  }
+
+  lines.push('GESAMT: '+saldo+'min = '+(saldo>=0?'+':'')+Math.floor(Math.abs(saldo)/60)+'h '+Math.abs(saldo)%60+'min');
+
+  // Zeige in einem Overlay
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#1a1a1a;color:#00ff00;font-family:monospace;font-size:12px;padding:20px;border-radius:12px;max-width:600px;width:100%;max-height:80vh;overflow-y:auto;white-space:pre;';
+  box.textContent = lines.join('\n');
+  var closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕ Schließen';
+  closeBtn.style.cssText = 'display:block;width:100%;margin-top:12px;background:#ef4444;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;';
+  closeBtn.onclick = function(){ document.body.removeChild(ov); };
+  ov.appendChild(box);
+  ov.appendChild(closeBtn);
+  document.body.appendChild(ov);
+}
+
 function renderHRZeiten() {
   var pane = document.getElementById('hr-tab-zeiten');
   if(!pane) return;
@@ -8777,6 +8844,7 @@ function renderHRZeiten() {
           '<div style="font-size:10px;color:#888;">Tagessoll</div></div>' +
       '</div>' +
       '<button onclick="showMaZeitDetail(this.dataset.name)" data-name="' + name + '" style="width:100%;background:#1e3a5f;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;margin-top:10px;font-family:inherit;">&#128203; Details / Eintrag hinzuf&uuml;gen</button>' +
+      '<button onclick="debugSaldo(this.dataset.name)" data-name="' + name + '" style="width:100%;background:#f59e0b;color:#fff;border:none;border-radius:9px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;margin-top:6px;font-family:inherit;">🔍 Saldo-Debug</button>' +
       '</div>';
   });
 
