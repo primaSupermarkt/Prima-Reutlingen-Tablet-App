@@ -1037,14 +1037,13 @@ function applyFirebaseData(key, val) {
       case 'maKompetenzen':      maKompetenzen = val; break;
       case 'persAufgaben':
         persAufgaben = val;
-        // Checkliste neu rendern wenn MA eingeloggt und Aufgabe für ihn
+        // Checkliste immer neu rendern wenn MA eingeloggt (neue Aufgabe soll sofort erscheinen)
         renderHomeActiveCL();
-        if(st.name && val.some(function(a){
-          const today=new Date().toISOString().slice(0,10);
-          return a.ma===st.name && a.datum>=today && a.status==='offen';
-        })) {
+        if(st.name) {
           try{ renderCL(); }catch(e){}
         }
+        // SL-Dashboard aktualisieren wenn offen
+        if(window._slLoggedIn) { try{ renderSLPersAufgaben(); }catch(e){} }
         break;
       case 'regalFotos':         regalFotos = val; break;
       case 'regalNachbesserungen': if(val) regalNachbesserungen=Array.isArray(val)?val:Object.values(val); break;
@@ -1076,6 +1075,8 @@ function applyFirebaseData(key, val) {
         const _alResetDate = _alReset ? JSON.parse(_alReset) : '';
         if(_alResetDate === _alToday) break;
         activeLogins = val;
+        try{ renderHomeActiveCL(); }catch(e){}
+        if(window._slLoggedIn){ try{ renderSL(); }catch(e){} }
         break;
       }
       // rollenAufgaben wird nicht per onSnapshot synchronisiert (siehe initRollenAufgaben)
@@ -1228,7 +1229,7 @@ let SL_PW    = localStorage.getItem('prima_slPw')    || '';
 let editingTaskId = null;
 
 // In-memory data (wird später durch Firebase ersetzt)
-let names    = ['Nino','Karimi','Okan','Yasin','Alisa','Adriana','Julian','Oleh'];
+let names = (function(){ try { const s=localStorage.getItem('prima_names'); if(s){ const p=JSON.parse(s); if(Array.isArray(p)&&p.length>0) return p; } } catch(e){} return ['Nino','Karimi','Okan','Yasin','Alisa','Adriana','Julian','Oleh','Gizem']; })();
 let reasons  = ['Ware nicht gekommen','Gerät defekt','Keine Zeit','Kollege nicht verfügbar','Technisches Problem','Sonstiges'];
 let infoLinks= [];
 let history  = lsLoad('history', []); // loaded from localStorage
@@ -1812,29 +1813,37 @@ function renderHomeActiveCL(){
   const box=document.getElementById('home-active-cl');
   if(!box)return;
   // Alle Mitarbeiter die aktiv eingeloggt (haben clState Einträge und keine Übergabe)
+  const slbMap2={'early':'Frühschicht','mid':'Mittelschicht','late':'Spätschicht'};
   const aktive=names.filter(function(n){
     if(!activeLogins[n]) return false;
+    if(activeLogins[n].aktiv===false) return false;
     const ubDone=ubergaben.some(function(u){return u.von===n&&u.status==='accepted';});
     return !ubDone;
   });
   if(!aktive.length){box.innerHTML='';return;}
-  let h='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:5px;">Aktive Checklisten</div>';
+  box.innerHTML='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:5px;">Aktive Checklisten</div>';
   aktive.forEach(function(n){
     const login=activeLogins[n]||{};
-    const schicht=login.schicht||'';
+    const schicht=slbMap2[login.schicht]||login.schicht||'';
     const startTime=login.loginTs||login.startTime||'';
     const done=login.clDone||0;
     const total=login.clTotal||0;
-    const card2=document.createElement('div');card2.style.cssText='background:#fff;border-radius:10px;padding:10px 12px;margin-bottom:6px;box-shadow:0 1px 5px rgba(0,0,0,.08);display:flex;align-items:center;gap:10px;cursor:pointer;';card2.setAttribute('data-name',n);
+    const pct=total>0?Math.round(done/total*100):0;
+    const barCol=pct===100?'#16a34a':pct>50?'#f59e0b':'#3b82f6';
+    const card2=document.createElement('div');
+    card2.style.cssText='background:#fff;border-radius:10px;padding:10px 12px;margin-bottom:6px;box-shadow:0 1px 5px rgba(0,0,0,.08);display:flex;align-items:center;gap:10px;cursor:pointer;';
+    card2.setAttribute('data-name',n);
+    card2.innerHTML=
       '<div style="width:36px;height:36px;border-radius:50%;background:#1e3a5f;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0;">'+n.charAt(0)+'</div>'+
       '<div style="flex:1;">'+
         '<div style="font-size:13px;font-weight:700;">'+n+'</div>'+
-        '<div style="font-size:11px;color:#888;">'+schicht+(startTime?' · ab '+startTime+' Uhr':'')+(total?' · '+done+'/'+total+' erledigt':'')+'</div>'+
+        '<div style="font-size:11px;color:#888;">'+schicht+(startTime?' · ab '+startTime+' Uhr':'')+(total?' · '+done+'/'+total+'':'')+'</div>'+
+        '<div style="margin-top:4px;background:#f0f0f0;border-radius:99px;height:5px;overflow:hidden;"><div style="height:100%;border-radius:99px;background:'+barCol+';width:'+pct+'%;"></div></div>'+
       '</div>'+
-      '<div style="font-size:13px;color:#1e3a5f;font-weight:700;">&#8250;</div>'+
-    '</div>';
+      '<div style="font-size:13px;color:#1e3a5f;font-weight:700;">&#8250;</div>';
+    card2.addEventListener('click', function(){ resumeCL(n); });
+    box.appendChild(card2);
   });
-  box.innerHTML=h;
 }
 
 function resumeCL(name){
@@ -1852,6 +1861,17 @@ function resumeCL(name){
 }
 
 function safeTick(){try{tick();renderHomeActiveCL();}catch(e){}} safeTick();setInterval(safeTick,30000);
+// SL-Dashboard Live-Refresh alle 20 Sekunden wenn geöffnet
+setInterval(function(){
+  try{
+    if(window._slLoggedIn){
+      var slDash=document.getElementById('sl-tab-dash');
+      if(slDash&&slDash.style.display!=='none'&&document.getElementById('s-sl')&&document.getElementById('s-sl').classList.contains('active')){
+        renderSL();
+      }
+    }
+  }catch(e){}
+},20000);
 
 
 // ═══════════════════════════════════════════
@@ -3407,8 +3427,26 @@ function renderSLPersAufgaben() {
   const listTitel = document.createElement('div');
   listTitel.style.cssText = 'font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;';
   const heute = persAufgaben.filter(function(a){return a.datum>=new Date(Date.now()-7*24*60*60*1000).toISOString().slice(0,10);}).sort(function(a,b){return b.datum<a.datum?-1:1;});
+  const erledigtAnz = heute.filter(function(a){return a.status==='erledigt';}).length;
   listTitel.textContent = 'Heutige Aufgaben (' + heute.length + ')';
   pane.appendChild(listTitel);
+
+  // Erledigte löschen Button
+  if(erledigtAnz > 0) {
+    const delBtn = document.createElement('button');
+    delBtn.style.cssText = 'width:100%;background:#fee2e2;border:none;border-radius:9px;padding:9px;font-size:12px;font-weight:700;color:#dc2626;cursor:pointer;font-family:inherit;margin-bottom:10px;';
+    delBtn.textContent = '🗑 Erledigte Aufgaben aus Liste löschen (' + erledigtAnz + ')';
+    delBtn.addEventListener('click', function(){
+      const cutoff = new Date(Date.now()-7*24*60*60*1000).toISOString().slice(0,10);
+      persAufgaben = persAufgaben.filter(function(a){
+        // Behalte: nicht im 7-Tage-Fenster ODER noch nicht erledigt
+        return a.datum < cutoff || a.status !== 'erledigt';
+      });
+      lsSave('persAufgaben', persAufgaben); fbSave('persAufgaben', persAufgaben);
+      renderSLPersAufgaben();
+    });
+    pane.appendChild(delBtn);
+  }
 
   if(!heute.length) {
     const empty = document.createElement('div');
@@ -3801,6 +3839,19 @@ function acceptUbergabe(){
     history.push({ts:new Date().toLocaleString('de-DE'),name:st.name,taskText:'Schichtübergabe angenommen von '+ub.von,done:true,schicht:slbls[st.schicht],bereich:st.bereich,startTime:st.startTime});
     clState['ub_accept']={status:'done',who:st.name,ts:nowStr(),ubVon:ub.von};
     lsSave('ubergaben',ubergaben);lsSave('history',history);
+    // ── Regalfotos der abgeschlossenen Schicht aus Storage löschen ──
+    try {
+      var heute = new Date().toISOString().slice(0,10);
+      var schichtVon = ub.von ? ub.schicht || '' : '';
+      var fotosDel = regalFotos.filter(function(f){ return f.datum===heute && f.ma===ub.von; });
+      fotosDel.forEach(function(f){
+        if(f.fotoUrl) deleteFotoFromStorage(f.fotoUrl);
+        if(f.dataUrl) delete f.dataUrl; // Base64 aus Speicher entfernen
+      });
+      // Fotos der übergebenden Schicht entfernen
+      regalFotos = regalFotos.filter(function(f){ return !(f.datum===heute && f.ma===ub.von); });
+      lsSave('regalFotos', regalFotos); fbSave('regalFotos', regalFotos);
+    } catch(e) { console.warn('Regalfoto-Cleanup:', e); }
   }
   updateSLBadge();
   $style('ub-open-banner', 'display', 'none');
@@ -4119,6 +4170,53 @@ function renderSL(){
   if(!body) return;
   body.innerHTML='';
 
+  // ── FIREBASE NEU LADEN Button ──
+  const syncRow = document.createElement('div');
+  syncRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:12px;';
+  const syncBtn = document.createElement('button');
+  syncBtn.id = 'sl-sync-btn';
+  syncBtn.style.cssText = 'flex:1;background:#1e3a5f;color:#fff;border:none;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;touch-action:manipulation;';
+  syncBtn.innerHTML = '🔄 <span>Daten aus Firebase neu laden</span>';
+  syncBtn.addEventListener('click', function(){
+    const span = syncBtn.querySelector('span');
+    syncBtn.disabled = true;
+    syncBtn.style.opacity = '0.6';
+    if(span) span.textContent = 'Lädt...';
+    // Alle FB_KEYS frisch aus Firestore lesen
+    var loaded = 0;
+    FB_KEYS.forEach(function(key){
+      try {
+        if(!fbReady||!db){ loaded++; return; }
+        db.collection('prima').doc(key).get().then(function(doc){
+          if(doc.exists){
+            try{
+              const fbData = doc.data();
+              const val = JSON.parse(fbData.data);
+              applyFirebaseData(key, val);
+            }catch(e){}
+          }
+          loaded++;
+          if(loaded >= FB_KEYS.length){
+            syncBtn.disabled = false; syncBtn.style.opacity = '1';
+            if(span) span.textContent = '✅ Aktualisiert!';
+            setTimeout(function(){
+              if(span) span.textContent = 'Daten aus Firebase neu laden';
+            }, 2500);
+            try{ renderSL(); }catch(e){}
+            try{ renderHomeActiveCL(); }catch(e){}
+          }
+        }).catch(function(){ loaded++; });
+      } catch(e){ loaded++; }
+    });
+    // Fallback: nach 5 Sekunden entsperren
+    setTimeout(function(){
+      syncBtn.disabled=false; syncBtn.style.opacity='1';
+      if(span) span.textContent='Daten aus Firebase neu laden';
+    }, 5000);
+  });
+  syncRow.appendChild(syncBtn);
+  body.appendChild(syncRow);
+
   // ── NACHRICHTEN VON MITARBEITERN ──
   const unreadMsgs = mitarbeiterNachrichten.filter(m=>!m.gelesen);
   if(unreadMsgs.length>0){
@@ -4215,29 +4313,27 @@ function renderSL(){
   const allNames=names||[];
   const slbMap={'early':'Frühschicht','mid':'Mittelschicht','late':'Spätschicht'};
   const berMap={'laden':'🛒 Laden','bake':'🥐 Bake-Off'};
-  let liveHTML='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">🟢 Wer ist gerade aktiv?</div>'+
+  const aktivLogins = allNames.filter(function(n){ return activeLogins[n] && activeLogins[n].aktiv !== false; });
+  let liveHTML='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">🟢 Wer ist gerade aktiv? ('+aktivLogins.length+' / '+allNames.length+')</div>'+
     '<div style="background:#fff;border-radius:12px;padding:10px 12px;box-shadow:0 2px 7px rgba(0,0,0,.07);margin-bottom:4px;">';
-  allNames.forEach(function(n){
-    const a=activeLogins[n];
-    if(a){
+  if(!aktivLogins.length){
+    liveHTML+='<div style="padding:10px 0;font-size:13px;color:#ccc;text-align:center;">Niemand eingeloggt</div>';
+  } else {
+    aktivLogins.forEach(function(n){
+      const a=activeLogins[n];
       const pct=a.clTotal>0?Math.round(a.clDone/a.clTotal*100):0;
       const barCol=pct===100?'#16a34a':pct>50?'#f59e0b':'#3b82f6';
       liveHTML+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f5f5;">'+
         '<div style="width:9px;height:9px;border-radius:50%;background:#16a34a;flex-shrink:0;box-shadow:0 0 0 3px #bbf7d0;"></div>'+
         '<div style="flex:1;">'+
           '<div style="font-size:13px;font-weight:800;">'+n+'</div>'+
-          '<div style="font-size:11px;color:#666;">'+(slbMap[a.schicht]||a.schicht)+' · '+(berMap[a.bereich]||a.bereich)+(a.startTime?' · ab '+a.startTime+' Uhr':'')+'</div>'+
+          '<div style="font-size:11px;color:#666;">'+(slbMap[a.schicht]||a.schicht)+' · '+(berMap[a.bereich]||a.bereich)+(a.loginTs?' · ab '+a.loginTs+' Uhr':'')+'</div>'+
           '<div style="margin-top:5px;background:#f0f0f0;border-radius:99px;height:6px;overflow:hidden;">'+
             '<div style="height:100%;border-radius:99px;background:'+barCol+';width:'+pct+'%;transition:width .4s;"></div></div>'+
           '<div style="font-size:10px;color:#aaa;margin-top:2px;">'+a.clDone+' / '+a.clTotal+' Aufgaben · '+pct+'%'+(a.lastSeen?' · zuletzt '+a.lastSeen:'')+'</div>'+
         '</div></div>';
-    } else {
-      liveHTML+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f5f5;opacity:.4;">'+
-        '<div style="width:9px;height:9px;border-radius:50%;background:#d1d5db;flex-shrink:0;"></div>'+
-        '<div style="font-size:13px;font-weight:600;color:#888;">'+n+'</div>'+
-        '<div style="margin-left:auto;font-size:11px;color:#ccc;">nicht eingeloggt</div></div>';
-    }
-  });
+    });
+  }
   liveHTML+='</div>';
   liveBlock.innerHTML=liveHTML;
   body.appendChild(liveBlock);
@@ -5262,7 +5358,11 @@ function saveTask(){
 }
 function saveName(){
   const n=document.getElementById('an-inp').value.trim();if(!n)return;
-  names.push(n);closeOv('ov-add-name');renderAdmin();
+  if(names.indexOf(n)!==-1){alert('Dieser Name existiert bereits.');return;}
+  names.push(n);
+  lsSave('names',names);
+  fbSave('names',names);
+  closeOv('ov-add-name');renderAdmin();
 }
 function saveReason(){
   const r=document.getElementById('ar-inp').value.trim();if(!r)return;
