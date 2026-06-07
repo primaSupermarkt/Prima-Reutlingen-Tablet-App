@@ -1012,7 +1012,11 @@ function applyFirebaseData(key, val) {
     switch(key) {
       case 'history':            history = val; break;
       case 'ubergaben':          ubergaben = val; break;
-      case 'umsatzData':         umsatzData = val; break;
+      case 'umsatzData':
+        umsatzData = val;
+        // Tab neu rendern falls gerade offen
+        if(window._slLoggedIn){ try{ renderUmsatz(); }catch(e){} }
+        break;
       case 'slCheckState': {
         const _slToday = new Date().toISOString().slice(0,10);
         const _slReset = localStorage.getItem('prima_lastDailyReset');
@@ -4922,7 +4926,38 @@ function checkPw(){
   const disp=document.getElementById('pw-pin-display');
   const val=disp?disp.getAttribute('data-pin')||'':'';
   if(pwTarget==='admin'&&val===ADMIN_PW){pwPinReset();closeOv('ov-pw');renderAdmin();go('s-admin');}
-  else if(pwTarget==='sl'&&val===SL_PW){pwPinReset();closeOv('ov-pw');window._slLoggedIn=true;renderSL();go('s-sl');}
+  else if(pwTarget==='sl'&&val===SL_PW){
+    pwPinReset();closeOv('ov-pw');window._slLoggedIn=true;renderSL();go('s-sl');
+    // Prüfen ob gestern Temperaturkontrolle fehlt
+    setTimeout(function(){
+      try {
+        var gestern = new Date(Date.now()-24*60*60*1000).toISOString().slice(0,10);
+        var gHat = tempHistory.some(function(h){ return (h.date||h.datum)===gestern; });
+        if(!gHat) {
+          var ov = document.createElement('div');
+          ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+          ov.innerHTML =
+            '<div style="background:#fff;border-radius:16px;padding:24px;max-width:340px;width:100%;text-align:center;">' +
+            '<div style="font-size:36px;margin-bottom:8px;">🌡️</div>' +
+            '<div style="font-size:17px;font-weight:900;color:#dc2626;margin-bottom:8px;">Temperaturkontrolle fehlt!</div>' +
+            '<div style="font-size:13px;color:#666;margin-bottom:18px;">Für <b>' + gestern + '</b> wurde keine Temperaturkontrolle erfasst. Möchtest du das jetzt nachtragen?</div>' +
+            '<div style="display:flex;gap:10px;">' +
+            '<button id="tmp-warn-nein" style="flex:1;border:2px solid #e5e7eb;background:#fff;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Später</button>' +
+            '<button id="tmp-warn-ja" style="flex:1;background:#0369a1;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Jetzt nachtragen</button>' +
+            '</div></div>';
+          document.body.appendChild(ov);
+          document.getElementById('tmp-warn-nein').addEventListener('click', function(){ document.body.removeChild(ov); });
+          document.getElementById('tmp-warn-ja').addEventListener('click', function(){
+            document.body.removeChild(ov);
+            window._tempNachtragDatum = gestern;
+            tempCurrentSession = {};
+            renderTempBody();
+            go('s-temp');
+          });
+        }
+      } catch(e){}
+    }, 600);
+  }
   else{$style('pw-err','display','block');if(disp){disp.setAttribute('data-pin','');disp.textContent='';}}
 }
 function pwPinReset(){
@@ -6891,15 +6926,49 @@ function renderTempBody() {
   body.innerHTML = '';
 
   var todayStr = new Date().toISOString().slice(0,10);
-  var tempBereitsHeute = tempHistory.some(function(h){ return (h.date||h.datum)===todayStr; });
 
-  // Wenn heute schon erfasst: zeige Hinweis
+  // ── Datum-Auswahl (für Nachtrag) ──
+  var datumRow = document.createElement('div');
+  datumRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px;';
+  var datumInp = document.createElement('input');
+  datumInp.type = 'date';
+  datumInp.id = 'temp-datum-select';
+  datumInp.value = window._tempNachtragDatum || todayStr;
+  datumInp.max = todayStr;
+  datumInp.style.cssText = 'flex:1;border:2px solid #e5e7eb;border-radius:9px;padding:9px 12px;font-size:14px;font-family:inherit;background:#fff;';
+  datumInp.addEventListener('change', function(){
+    window._tempNachtragDatum = datumInp.value;
+    tempCurrentSession = {};
+    renderTempBody();
+  });
+  var datumLbl = document.createElement('div');
+  datumLbl.style.cssText = 'font-size:11px;font-weight:700;color:#666;white-space:nowrap;';
+  datumLbl.textContent = datumInp.value === todayStr ? 'Heute' : '📅 Nachtrag';
+  datumRow.appendChild(datumInp);
+  datumRow.appendChild(datumLbl);
+  body.appendChild(datumRow);
+
+  var gewaehltesDatum = window._tempNachtragDatum || todayStr;
+  var tempBereitsHeute = tempHistory.some(function(h){ return (h.date||h.datum)===gewaehltesDatum; });
+
+  // Wenn für dieses Datum schon erfasst: zeige Hinweis + Option zum Überschreiben
   if(tempBereitsHeute) {
-    var entry = tempHistory.slice().reverse().find(function(h){ return (h.date||h.datum)===todayStr; });
+    var entry = tempHistory.slice().reverse().find(function(h){ return (h.date||h.datum)===gewaehltesDatum; });
     var infoDiv = document.createElement('div');
     infoDiv.style.cssText = 'background:#dcfce7;border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px;font-weight:700;color:#15803d;text-align:center;';
-    infoDiv.textContent = '✅ Heute bereits erfasst' + (entry&&entry.ma?' von '+entry.ma:'') + (entry&&entry.ts?' um '+entry.ts.slice(11,16)+' Uhr':'');
+    infoDiv.textContent = '✅ ' + (gewaehltesDatum===todayStr?'Heute':'Dieser Tag') + ' bereits erfasst' + (entry&&entry.ma?' von '+entry.ma:'') + (entry&&entry.ts?' um '+entry.ts.slice(11,16)+' Uhr':'');
     body.appendChild(infoDiv);
+    var uebBtn = document.createElement('button');
+    uebBtn.style.cssText = 'width:100%;background:#f59e0b;color:#fff;border:none;border-radius:9px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px;';
+    uebBtn.textContent = '✏️ Trotzdem bearbeiten / korrigieren';
+    uebBtn.addEventListener('click', function(){
+      // Eintrag entfernen damit erneut eingegeben werden kann
+      tempHistory = tempHistory.filter(function(h){ return (h.date||h.datum)!==gewaehltesDatum; });
+      lsSave('tempHistory', tempHistory); fbSave('tempHistory', tempHistory);
+      tempCurrentSession = {};
+      renderTempBody();
+    });
+    body.appendChild(uebBtn);
   }
 
   var kuehl = TEMP_DEVICES.filter(function(d){ return d.type==='kuehl'; });
@@ -7048,11 +7117,13 @@ function saveTempInput() {
 }
 
 function submitTemp() {
-  const today = new Date().toISOString().slice(0,10);
-  // Doppelte Erfassung verhindern
-  if(tempHistory.some(function(h){ return (h.date||h.datum)===today; })) {
-    alert('Temperaturkontrolle für heute wurde bereits erfasst.');
-    go('s-cl');
+  var gewaehltesDatum = window._tempNachtragDatum || new Date().toISOString().slice(0,10);
+  var today = new Date().toISOString().slice(0,10);
+  var istNachtrag = gewaehltesDatum !== today;
+
+  // Doppelte Erfassung verhindern (außer nach explizitem Überschreiben)
+  if(tempHistory.some(function(h){ return (h.date||h.datum)===gewaehltesDatum; })) {
+    alert('Für dieses Datum wurde bereits eine Temperaturkontrolle erfasst. Bitte zuerst auf "Bearbeiten / korrigieren" tippen.');
     return;
   }
   const readings = TEMP_DEVICES.map(dev => {
@@ -7063,37 +7134,42 @@ function submitTemp() {
   });
   const entry = {
     id: 'tmp'+Date.now(),
-    date: today,
-    ts: new Date().toLocaleString('de-DE'),
+    date: gewaehltesDatum,
+    ts: istNachtrag ? (gewaehltesDatum + ' (Nachtrag)') : new Date().toLocaleString('de-DE'),
     ma: st.name,
     schicht: st.schicht||'',
+    nachtrag: istNachtrag,
     readings
   };
   tempHistory.push(entry);
   // Keep 30 days
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-30);
   tempHistory = tempHistory.filter(h => new Date(h.date) >= cutoff);
+  tempHistory.sort(function(a,b){ return (b.date||b.datum).localeCompare(a.date||a.datum); });
   lsSave('tempHistory', tempHistory);
+  fbSave('tempHistory', tempHistory);
+
+  // Datum zurücksetzen auf heute
+  window._tempNachtragDatum = null;
 
   const alarmCount = readings.filter(r=>r.alarm).length;
   const warnCount  = readings.filter(r=>r.warn).length;
 
-  // Mark the task as done
-  const tempTaskId = getMyTasks().find(function(t){return t.special==='temp';});
-  // Alle Temp-Tasks aller Rollen als erledigt markieren (oncePerDay für den ganzen Tag)
-  var doneTs = new Date().toLocaleString('de-DE');
-  var doneBy = st.name || 'Unbekannt';
-  Object.keys(rollenAufgaben).forEach(function(key) {
-    (rollenAufgaben[key] || []).forEach(function(t) {
-      if(t.special === 'temp') {
-        clState[t.id] = {status:'done', who:doneBy, ts:doneTs};
-      }
+  // Nur wenn heute: Task als erledigt markieren
+  if(!istNachtrag) {
+    var doneTs = new Date().toLocaleString('de-DE');
+    var doneBy = st.name || 'Unbekannt';
+    Object.keys(rollenAufgaben).forEach(function(key) {
+      (rollenAufgaben[key] || []).forEach(function(t) {
+        if(t.special === 'temp') {
+          clState[t.id] = {status:'done', who:doneBy, ts:doneTs};
+        }
+      });
     });
-  });
-  // Auch Bake-Off Task (eb7)
-  clState['eb7'] = {status:'done', who:doneBy, ts:doneTs};
-  lsSave('clState', clState);
-  fbSave('clState', clState);
+    clState['eb7'] = {status:'done', who:doneBy, ts:doneTs};
+    lsSave('clState', clState);
+    fbSave('clState', clState);
+  }
 
   go('s-cl');
   if(alarmCount>0) setTimeout(function(){try{alert('ACHTUNG: '+alarmCount+' Geraet(e) haben Alarmtemperatur!');}catch(e){}},300);
