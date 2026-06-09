@@ -1096,11 +1096,17 @@ function applyFirebaseData(key, val) {
       }
       // rollenAufgaben wird nicht per onSnapshot synchronisiert (siehe initRollenAufgaben)
       case 'clState': {
+        if(!val || typeof val !== 'object') break;
         const _clToday = new Date().toISOString().slice(0,10);
         const _clReset = localStorage.getItem('prima_lastDailyReset');
         const _clResetDate = _clReset ? JSON.parse(_clReset) : '';
-        if(_clResetDate === _clToday) break;
-        if(val&&typeof val==='object') Object.assign(clState,val);
+        // Nach Reset: nur Ergänzungen akzeptieren (neue erledigte Tasks),
+        // aber nie einen leeren/alten Stand übernehmen der den Reset rückgängig macht
+        if(_clResetDate === _clToday && Object.keys(val).length === 0) break;
+        Object.assign(clState, val);
+        lsSaveLocal('clState', clState);
+        try{ renderCL(); }catch(e){}
+        try{ renderHomeActiveCL(); }catch(e){}
         break;
       }
       case 'DP':                 if(val&&val.mitarbeiter) DP.mitarbeiter=val.mitarbeiter; if(val&&val.weeks) DP.weeks=val.weeks; if(val&&val.budget!==undefined) DP.budget=val.budget; if(val&&val.activeWeek) DP.activeWeek=val.activeWeek; try{localStorage.setItem('prima_dp_v1',JSON.stringify(DP));}catch(e){} renderDP(); break;
@@ -3414,6 +3420,7 @@ function renderPersAufgaben(body) {
         // Als erledigt in der Checkliste markieren
         clState['pers_'+a.id] = {status:'done', who:st.name, ts:new Date().toLocaleString('de-DE')};
         lsSave('clState', clState);
+        fbSave('clState', clState);
         renderCL();
       };})(a.id);
       acts.appendChild(db); row.appendChild(acts);
@@ -7308,6 +7315,7 @@ function openTempControl() {
       var wann = entry&&entry.ts ? (entry.ts.slice(11,16)||'') : '';
       clState[tempTask.id] = {status:'done', who:wer, ts:wann};
       lsSave('clState', clState);
+      fbSave('clState', clState);
     }
   }
   // Immer die Erfassungsmaske öffnen (renderTempBody zeigt Hinweis wenn schon erledigt)
@@ -8701,13 +8709,15 @@ function renderBrett() {
     card.innerHTML = zeitraum +
       '<div style="font-size:15px;font-weight:800;color:#111;margin-bottom:8px;line-height:1.4;">'+msg.text+'</div>'+
       '<div style="font-size:11px;color:#888;margin-bottom:10px;">Erstellt: '+msg.ts+(msg.bestaetigt&&msg.bestaetigt.length?' · ✅ '+msg.bestaetigt.length+' bestätigt':'')+'</div>';
-    // Optionales Foto
+    // Optionales Foto – sofort groß anzeigen, kein Klick nötig
     if(msg.foto) {
+      const imgWrap = document.createElement('div');
+      imgWrap.style.cssText = 'margin:-16px -16px 14px -16px;';
       const img = document.createElement('img');
       img.src = msg.foto;
-      img.style.cssText = 'width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin-bottom:10px;cursor:pointer;';
-      img.onclick = function() { openUbFotoFullscreen(msg.foto, msg.text); };
-      card.appendChild(img);
+      img.style.cssText = 'width:100%;display:block;border-radius:13px 13px 0 0;max-height:420px;object-fit:contain;background:#f0f0f0;';
+      imgWrap.appendChild(img);
+      card.insertBefore(imgWrap, card.firstChild);
     }
     if(!already) {
       const btn = document.createElement('button');
