@@ -1037,8 +1037,8 @@ function applyFirebaseData(key, val) {
       case 'slushHistory':       slushHistory = val; break;
       case 'kaffeeHistory':      kaffeeHistory = val; break;
       case 'waschHistory':       waschHistory = val; break;
-      case 'inventurHistory':    inventurHistory = val; break;
-      case 'weeklyTasks':        weeklyTasks = val; break;
+      case 'inventurHistory':    inventurHistory = val; lsSaveLocal('inventurHistory', val); break;
+      case 'weeklyTasks':        weeklyTasks = val; lsSaveLocal('weeklyTasks', val); break;
       case 'weeklyCheckState':   weeklyCheckState = val; break;
       case 'onceDoneToday':      onceDoneToday = val; break;
       case 'mitNachrichten':     mitarbeiterNachrichten = val; try{updateSLBadge();}catch(e){} break;
@@ -1068,7 +1068,7 @@ function applyFirebaseData(key, val) {
       case 'firmaConfig':        firmaConfig = val; break;
       case 'mitarbeiterZeugen':  mitarbeiterZeugen = val; break;
       case 'strafantraege':      strafantraege = val; break;
-      case 'slTasks':            slTasks = val; break;
+      case 'slTasks':            slTasks = val; lsSaveLocal('slTasks', val); break;
       case 'zeiterfassung':
         zeiterfassung = val;
         // HR-Zeiten neu rendern wenn Tab offen
@@ -1079,7 +1079,10 @@ function applyFirebaseData(key, val) {
           }
         } catch(e) {}
         break;
-      case 'maProfiles':         maProfiles = val; break;
+      case 'maProfiles':
+        maProfiles = val;
+        lsSaveLocal('maProfiles', val); // localStorage aktualisieren damit PIN nach Neustart gilt
+        break;
       case 'activeLogins': {
         // Ignorieren wenn heute bereits ein Reset durchgeführt wurde
         const _alToday = new Date().toISOString().slice(0,10);
@@ -1101,7 +1104,9 @@ function applyFirebaseData(key, val) {
         break;
       }
       case 'DP':                 if(val&&val.mitarbeiter) DP.mitarbeiter=val.mitarbeiter; if(val&&val.weeks) DP.weeks=val.weeks; if(val&&val.budget!==undefined) DP.budget=val.budget; if(val&&val.activeWeek) DP.activeWeek=val.activeWeek; try{localStorage.setItem('prima_dp_v1',JSON.stringify(DP));}catch(e){} renderDP(); break;
-      case 'names':              if(val&&val.length){ names=val; lsSave('names',names); } break;
+      case 'names':
+        if(val&&val.length){ names=val; lsSaveLocal('names',val); }
+        break;
       case 'lastDailyReset':
         // Reset-Datum synchronisieren - wenn Firebase ein neueres Datum hat, lokal übernehmen
         if(val && typeof val==='string') {
