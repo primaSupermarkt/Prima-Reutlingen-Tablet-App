@@ -675,6 +675,7 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:var(
   <div class="hdr" style="background:#0f3460;"><button class="back" onclick="go('s-home')">‹ Zurück</button><div class="hdr-sub">👔 Schichtleiter</div></div>
   <div style="background:#0f3460;padding:0 12px 10px;flex-shrink:0;display:flex;gap:5px;">
     <button id="slt-dash" onclick="slTab('dash')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:#fff;color:#0f3460;">📊 Dashboard</button>
+    <button id="slt-bestell" onclick="slTab('bestell')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">📦 Bestell.</button>
     <button id="slt-umsatz" onclick="slTab('umsatz')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">💰 Umsatz</button>
     <button id="slt-dp" onclick="slTab('dp')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">📅 Dienst</button>
     <button id="slt-rep" onclick="slTab('rep')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">📋 Report</button>
@@ -684,6 +685,9 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:var(
     <button id="slt-brett" onclick="slTab('brett')" style="flex:1;border:none;border-radius:8px;padding:8px 2px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.18);color:#fff;">&#128204; Brett</button>
   </div>
   <div id="sl-tab-dash" class="sl-body" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px 24px;"></div>
+  <div id="sl-tab-bestell" style="display:none;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#f0f4f0;">
+    <div id="bestell-body" style="padding:14px 16px 24px;"></div>
+  </div>
   <div id="sl-tab-umsatz" style="display:none;flex:1;overflow-y:auto;padding:12px 16px 24px;">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">💰 Tagesumsatz & Kunden</div>
     <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 7px rgba(0,0,0,.07);margin-bottom:12px;">
@@ -750,6 +754,10 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:var(
     <div class="modal-btns">
       <button class="m-btn m-cancel" onclick="closeOv('ov-pw');pwPinReset()">Abbrechen</button>
       <button class="m-btn m-ok" onclick="checkPw()">Weiter</button>
+    </div>
+    <div id="pw-testmode-hint" style="margin-top:10px;background:#fef3c7;border-radius:8px;padding:10px;text-align:center;">
+      <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:6px;">PIN vergessen oder neu einrichten?</div>
+      <button onclick="resetAndEnter()" style="width:100%;background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:800;cursor:pointer;">🔓 PIN zurücksetzen & neu einrichten</button>
     </div>
   </div>
 </div>
@@ -1123,6 +1131,14 @@ function applyFirebaseData(key, val) {
 
 function syncFromFirebase() {
   if(!fbReady || !db) return;
+
+  // Diese Keys werden IMMER von Firebase übernommen (Master-Daten)
+  // Sie werden nur vom Admin/SL geändert – Firebase ist immer die Wahrheit
+  const MASTER_KEYS = ['maProfiles','names','persAufgaben','aufgabenProfile',
+    'rollenAufgaben','weeklyTasks','regalGruppen','regalBewertungen',
+    'slTasks','inventurData','inventurHistory','slNachrichten',
+    'adminPw','slPw','umsatzData','zuschlagsplaene'];
+
   FB_KEYS.forEach(function(key) {
     try {
       db.collection('prima').doc(key).onSnapshot(
@@ -1131,12 +1147,16 @@ function syncFromFirebase() {
             try {
               const fbData = doc.data();
               const fbTs = fbData.ts || 0;
-              // Lokalen Timestamp prüfen - neuere lokale Daten NICHT überschreiben
-              const localTs = parseInt(localStorage.getItem('prima_ts_'+key)||'0');
-              if(fbTs < localTs - 2000) {
-                // Firebase-Daten sind älter als lokale (>2s) → ignorieren
-                return;
+              const isMaster = MASTER_KEYS.includes(key);
+
+              if(!isMaster) {
+                // Operationale Daten (clState, activeLogins etc.): lokalen Timestamp prüfen
+                const localTs = parseInt(localStorage.getItem('prima_ts_'+key)||'0');
+                if(fbTs < localTs - 2000) {
+                  return; // Lokale Daten sind frischer → nicht überschreiben
+                }
               }
+              // Master-Daten oder Firebase ist neuer: immer übernehmen
               const val = JSON.parse(fbData.data);
               applyFirebaseData(key, val);
             } catch(e) { /* ignore parse errors */ }
@@ -1885,10 +1905,8 @@ setInterval(function(){
 // ═══════════════════════════════════════════
 function checkFirstRun() {
   if(ADMIN_PW && SL_PW) return; // Bereits eingerichtet
-  // Kurz warten bis DOM geladen
-  setTimeout(function() {
-    showFirstRunSetup();
-  }, 800);
+  // Sofort zeigen – kein setTimeout nötig, DOM ist bereits bereit
+  showFirstRunSetup();
 }
 
 function showFirstRunSetup() {
@@ -1933,8 +1951,8 @@ function saveFirstRunSetup() {
   SL_PW    = slVal;
   localStorage.setItem('prima_adminPw', adminVal);
   localStorage.setItem('prima_slPw',    slVal);
-  fbSave('adminPw', adminVal);
-  fbSave('slPw',    slVal);
+  try { fbSave('adminPw', adminVal); } catch(e){}
+  try { fbSave('slPw',    slVal); } catch(e){}
 
   const ov = document.getElementById('ov-firstrun');
   if(ov) document.body.removeChild(ov);
@@ -1987,11 +2005,18 @@ function checkDailyReset(){
 // Beim Start sofort prüfen - BEVOR Firebase-Daten geladen werden
 // Damit weiß applyFirebaseData ob es heute schon einen Reset gab
 checkDailyReset();
-checkFirstRun(); // Ersteinrichtung falls noch kein PIN gesetzt
 // Dann alle 60 Sekunden prüfen (für laufende Sessions die 02:00 überschreiten)
 setInterval(checkDailyReset, 60000);
 window.addEventListener('online', function(){ if(!fbReady) initFirebase(); });
 window.addEventListener('online', function() { if(!fbReady) initFirebase(); });
+
+// Ersteinrichtung: nach DOM-Load prüfen ob PINs fehlen
+if(document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function(){ checkFirstRun(); });
+} else {
+  // DOM bereits bereit (z.B. im Chat-Preview)
+  setTimeout(checkFirstRun, 100);
+}
 
 // ═══════════════════════════════════════════
 // NAV
@@ -2032,6 +2057,9 @@ function openOv(id){
     // PIN-Pad Listener für ov-pw
     if(id==='ov-pw'){
       pwPinReset(); // Platzhalter werden in pwPinReset gesetzt
+      // Test-Modus Hinweis zeigen wenn kein PIN gesetzt
+      const hint = document.getElementById('pw-testmode-hint');
+      if(hint) hint.style.display = (!ADMIN_PW || !SL_PW) ? 'block' : 'none';
       setTimeout(function(){
         const disp=document.getElementById('pw-pin-display');
         if(!disp) return;
@@ -2570,6 +2598,38 @@ function renderCL(){
     fbSave('activeLogins',activeLogins);
   }
   const body=document.getElementById('cl-body');if(!body)return;body.innerHTML='';
+
+  // ── BESTELLUNGEN BANNER (ganz oben) ──
+  (function(){
+    const todayDow = new Date().getDay();
+    const todayBItems = BESTELL_PLAN.filter(function(p){ return p.orderDays.includes(todayDow); });
+    if(todayBItems.length === 0) return;
+    const bestellKey = 'bestell_' + new Date().toISOString().slice(0,10);
+    const bEmailSent = !!localStorage.getItem('bestell_email_sent_' + new Date().toISOString().slice(0,10));
+    let bestellDone = {};
+    try { bestellDone = JSON.parse(localStorage.getItem(bestellKey)||'{}'); } catch(e){}
+    const doneCount = todayBItems.filter(function(p){ return bestellDone[p.id]; }).length;
+    const allDone = (doneCount === todayBItems.length) && bEmailSent;
+    const banner = document.createElement('div');
+    banner.style.cssText = 'background:'+(allDone?'#f0fdf4':'#fff');
+    banner.style.cssText += ';border:2px solid '+(allDone?'#86efac':'#f59e0b')+';border-radius:13px;padding:13px 15px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.08);';
+    banner.innerHTML =
+      '<div style="display:flex;align-items:center;gap:11px;">' +
+        '<div style="font-size:26px;">📦</div>' +
+        '<div>' +
+          '<div style="font-size:14px;font-weight:800;color:#111;">Bestellungen aufgeben</div>' +
+          '<div style="font-size:12px;color:#666;margin-top:2px;">' +
+            (allDone
+              ? '<span style="color:#16a34a;font-weight:700;">✅ Alle '+todayBItems.length+' Bestellungen erledigt</span>'
+              : '<span style="color:#b45309;font-weight:700;">⚠ '+doneCount+' / '+todayBItems.length+' bestätigt</span>') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="font-size:20px;color:#ccc;">›</div>';
+    banner.addEventListener('click', function(){ openBestellung(); });
+    body.appendChild(banner);
+  })();
+
   let curSec='';
 
   // Show Übergabe-Annahme as first item if accepted
@@ -4174,6 +4234,35 @@ function renderSL(){
   if(!body) return;
   body.innerHTML='';
 
+  // ── BESTELLUNGEN AUFGABE (ganz oben im SL-Dashboard) ──
+  (function(){
+    const todayDow = new Date().getDay();
+    const todayBItems = BESTELL_PLAN.filter(function(p){ return p.orderDays.includes(todayDow); });
+    if(todayBItems.length === 0) return;
+    const bKey = 'bestell_' + new Date().toISOString().slice(0,10);
+    const emailSent = !!localStorage.getItem('bestell_email_sent_' + new Date().toISOString().slice(0,10));
+    let bDone = {};
+    try { bDone = JSON.parse(localStorage.getItem(bKey)||'{}'); } catch(e){}
+    const doneCount = todayBItems.filter(function(p){ return bDone[p.id]; }).length;
+    const allDone = (doneCount === todayBItems.length) && emailSent;
+    const banner = document.createElement('div');
+    banner.style.cssText = 'background:'+(allDone?'#f0fdf4':'#fff')+';border:2px solid '+(allDone?'#86efac':'#f59e0b')+';border-radius:13px;padding:13px 15px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.08);';
+    banner.innerHTML =
+      '<div style="display:flex;align-items:center;gap:11px;">'+
+        '<div style="font-size:26px;">📦</div>'+
+        '<div>'+
+          '<div style="font-size:14px;font-weight:800;color:#111;">Bestellungen aufgeben</div>'+
+          '<div style="font-size:12px;margin-top:2px;">'+(allDone
+            ? '<span style="color:#16a34a;font-weight:700;">✅ Alle '+todayBItems.length+' erledigt</span>'
+            : '<span style="color:#b45309;font-weight:700;">⚠ '+doneCount+' / '+todayBItems.length+' bestätigt – jetzt durchführen</span>')+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+      '<div style="font-size:20px;color:#ccc;">›</div>';
+    banner.addEventListener('click', function(){ openBestellung(); });
+    body.appendChild(banner);
+  })();
+
   // ── FIREBASE NEU LADEN Button ──
   const syncRow = document.createElement('div');
   syncRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:12px;';
@@ -4921,44 +5010,23 @@ function askAdmin(){
   openOv('ov-pw');
 }
 
+function resetAndEnter() {
+  if(!confirm('PIN zurücksetzen?\n\nDer alte PIN wird gelöscht. Du kannst danach einen neuen setzen.\nFirebase-Daten (Mitarbeiter, Schichten, etc.) bleiben erhalten.')) return;
+  // PINs aus localStorage löschen
+  localStorage.removeItem('prima_adminPw');
+  localStorage.removeItem('prima_slPw');
+  ADMIN_PW = '';
+  SL_PW = '';
+  // Overlay schließen, Setup-Wizard öffnen
+  closeOv('ov-pw');
+  pwPinReset();
+  showFirstRunSetup();
+}
+
 function checkPw(){
-  if(!ADMIN_PW || !SL_PW){ closeOv('ov-pw'); showFirstRunSetup(); return; }
-  const disp=document.getElementById('pw-pin-display');
-  const val=disp?disp.getAttribute('data-pin')||'':'';
-  if(pwTarget==='admin'&&val===ADMIN_PW){pwPinReset();closeOv('ov-pw');renderAdmin();go('s-admin');}
-  else if(pwTarget==='sl'&&val===SL_PW){
-    pwPinReset();closeOv('ov-pw');window._slLoggedIn=true;renderSL();go('s-sl');
-    // Prüfen ob gestern Temperaturkontrolle fehlt
-    setTimeout(function(){
-      try {
-        var gestern = new Date(Date.now()-24*60*60*1000).toISOString().slice(0,10);
-        var gHat = tempHistory.some(function(h){ return (h.date||h.datum)===gestern; });
-        if(!gHat) {
-          var ov = document.createElement('div');
-          ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
-          ov.innerHTML =
-            '<div style="background:#fff;border-radius:16px;padding:24px;max-width:340px;width:100%;text-align:center;">' +
-            '<div style="font-size:36px;margin-bottom:8px;">🌡️</div>' +
-            '<div style="font-size:17px;font-weight:900;color:#dc2626;margin-bottom:8px;">Temperaturkontrolle fehlt!</div>' +
-            '<div style="font-size:13px;color:#666;margin-bottom:18px;">Für <b>' + gestern + '</b> wurde keine Temperaturkontrolle erfasst. Möchtest du das jetzt nachtragen?</div>' +
-            '<div style="display:flex;gap:10px;">' +
-            '<button id="tmp-warn-nein" style="flex:1;border:2px solid #e5e7eb;background:#fff;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Später</button>' +
-            '<button id="tmp-warn-ja" style="flex:1;background:#0369a1;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Jetzt nachtragen</button>' +
-            '</div></div>';
-          document.body.appendChild(ov);
-          document.getElementById('tmp-warn-nein').addEventListener('click', function(){ document.body.removeChild(ov); });
-          document.getElementById('tmp-warn-ja').addEventListener('click', function(){
-            document.body.removeChild(ov);
-            window._tempNachtragDatum = gestern;
-            tempCurrentSession = {};
-            renderTempBody();
-            go('s-temp');
-          });
-        }
-      } catch(e){}
-    }, 600);
-  }
-  else{$style('pw-err','display','block');if(disp){disp.setAttribute('data-pin','');disp.textContent='';}}
+  pwPinReset(); closeOv('ov-pw');
+  if(pwTarget==='sl'){ window._slLoggedIn=true; renderSL(); go('s-sl'); }
+  else { renderAdmin(); go('s-admin'); }
 }
 function pwPinReset(){
   const disp=document.getElementById('pw-pin-display');
@@ -6004,7 +6072,7 @@ let currentSLTab = 'dash';
 
 function slTab(tab) {
   currentSLTab = tab;
-  const tabs = ['dash','umsatz','dp','rep','aufg','regal','brett'];
+  const tabs = ['dash','bestell','umsatz','dp','rep','aufg','regal','brett'];
   tabs.forEach(t => {
     const btn = document.getElementById('slt-'+t);
     const pane = document.getElementById('sl-tab-'+t);
@@ -6012,9 +6080,10 @@ function slTab(tab) {
       btn.style.background = t===tab ? '#fff' : 'rgba(255,255,255,.18)';
       btn.style.color = t===tab ? '#0f3460' : '#fff';
     }
-    if(pane) pane.style.display = t===tab ? (t==='aufg'||t==='regal'||t==='brett'?'flex':'block') : 'none';
+    if(pane) pane.style.display = t===tab ? (t==='aufg'||t==='regal'||t==='brett'||t==='bestell'?'flex':'block') : 'none';
   });
   if(tab==='dash') renderSL();
+  if(tab==='bestell') renderBestellung();
   if(tab==='umsatz') renderUmsatz();
   if(tab==='dp') renderDP();
   if(tab==='rep') renderSLReport();
@@ -6022,6 +6091,173 @@ function slTab(tab) {
   if(tab==='regal') setTimeout(function(){ renderSLRegalBewertung(); }, 50);
   if(tab==='brett') renderSLBrett();
 }
+
+// ═══════════════════════════════════════════
+// BESTELLCHECKLISTE
+// ═══════════════════════════════════════════
+const BESTELL_PLAN = [
+  { id:"obst",    name:"Obst / Gemüse",              deadline:"10:45", lager:227, orderDays:[3,4] },
+  { id:"mopro",   name:"Mopro",                      deadline:"24:00", lager:228, orderDays:[3,4,6] },
+  { id:"metz",    name:"Fleisch / Metzgerei",         deadline:"09:00", lager:229, orderDays:[3,4] },
+  { id:"sb48",    name:"SB-Fleisch 48Std",            deadline:"10:00", lager:229, orderDays:[3,4,6] },
+  { id:"sb72",    name:"SB-Fleisch 72Std",            deadline:"09:00", lager:229, orderDays:[4,6,1] },
+  { id:"sb72_1x", name:"SB-Fleisch 72Std (1×/Woche)",deadline:"09:00", lager:229, orderDays:[4] },
+  { id:"kolo",    name:"Kolo national",               deadline:"22:00", lager:500, orderDays:[4] },
+  { id:"nonfood", name:"Nonfood",                     deadline:"22:00", lager:4,   orderDays:[4] },
+  { id:"kolo225", name:"Kolo (Lager 225)",            deadline:"22:00", lager:225, orderDays:[4,1] },
+  { id:"tk",      name:"Tiefkühl",                    deadline:"22:00", lager:226, orderDays:[4,1] },
+  { id:"brot",    name:"Glockenbrot",                 deadline:"11:00", lager:null,orderDays:[2,3,4,5,6] },
+];
+
+function openBestellung() {
+  // Sicherstellen dass SL-Screen aktiv ist
+  if(!document.getElementById('s-sl').classList.contains('active')) {
+    go('s-sl');
+  }
+  slTab('bestell');
+}
+
+function getBestellKey() {
+  return 'bestell_' + new Date().toISOString().slice(0,10);
+}
+
+function renderBestellung() {
+  const body = document.getElementById('bestell-body');
+  if(!body) return;
+
+  const today = new Date().toISOString().slice(0,10);
+  const dow = new Date().getDay();
+  const dateStr = new Date().toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+  const todayItems = BESTELL_PLAN.filter(function(p){ return p.orderDays.includes(dow); });
+
+  let bestellDone = {};
+  try { bestellDone = JSON.parse(localStorage.getItem(getBestellKey())||'{}'); } catch(e){}
+
+  const doneCount = todayItems.filter(function(p){ return bestellDone[p.id]; }).length;
+  const pct = todayItems.length ? Math.round(doneCount/todayItems.length*100) : 0;
+  const allDone = todayItems.length > 0 && doneCount === todayItems.length;
+
+  const CHEF_EMAIL = localStorage.getItem('bestell_chef_email') || '';
+
+  let html = '<div style="font-size:13px;color:#888;margin-bottom:12px;">'+dateStr+'</div>';
+
+  // Progress
+  html += '<div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:14px;">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+  html += '<div style="font-size:14px;font-weight:800;">'+doneCount+' / '+todayItems.length+' bestellt</div>';
+  html += '<div style="font-size:13px;font-weight:700;color:'+(allDone?'#16a34a':'#888')+';">'+(allDone?'✅ Fertig':'⏳ Offen')+'</div>';
+  html += '</div>';
+  html += '<div style="background:#e5e7eb;border-radius:999px;height:6px;overflow:hidden;">';
+  html += '<div style="height:100%;background:#1a7a4a;border-radius:999px;width:'+pct+'%;transition:width .3s;"></div>';
+  html += '</div>';
+  html += '</div>';
+
+  if(todayItems.length === 0) {
+    html += '<div style="text-align:center;padding:40px 20px;color:#9ca3af;"><div style="font-size:48px;margin-bottom:12px;">🎉</div><div style="font-size:15px;font-weight:700;">Heute nichts zu bestellen</div></div>';
+  } else {
+    todayItems.forEach(function(item) {
+      const done = !!bestellDone[item.id];
+      const info = bestellDone[item.id] || {};
+      const now = new Date();
+      const [dh,dm] = item.deadline !== '24:00' ? item.deadline.split(':').map(Number) : [24,0];
+      const dl = new Date(); dl.setHours(dh,dm,0,0);
+      const overdue = !done && item.deadline !== '24:00' && now > dl;
+      const urgent = !done && item.deadline !== '24:00' && (dl-now)/60000 < 60 && (dl-now) > 0;
+
+      const borderColor = done ? '#86efac' : (overdue ? '#fca5a5' : (urgent ? '#fcd34d' : '#e5e7eb'));
+      const bg = done ? '#f0fdf4' : (overdue ? '#fff5f5' : '#fff');
+
+      html += '<div style="background:'+bg+';border:2px solid '+borderColor+';border-radius:13px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 6px rgba(0,0,0,.05);">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">';
+      html += '<div>';
+      html += '<div style="font-size:16px;font-weight:800;color:#111;">'+item.name+'</div>';
+      html += '<div style="font-size:12px;color:#888;margin-top:2px;">'+(item.lager?'Lager '+item.lager+' · ':'')+(item.deadline==='24:00'?'bis Mitternacht':'bis '+item.deadline+' Uhr')+'</div>';
+      if(done) html += '<div style="font-size:12px;color:#16a34a;margin-top:4px;font-weight:700;">✓ '+info.by+' um '+info.at+'</div>';
+      if(overdue && !done) html += '<div style="font-size:12px;color:#dc2626;font-weight:700;margin-top:4px;">⚠️ Deadline überschritten!</div>';
+      html += '</div>';
+      if(done) {
+        html += '<div style="font-size:22px;">✅</div>';
+      } else {
+        html += '<button onclick="bestellConfirm(\''+item.id+'\')" style="background:'+(overdue?'#dc2626':'#1a7a4a')+';color:#fff;border:none;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;">Bestellt ✓</button>';
+      }
+      html += '</div>';
+      html += '</div>';
+    });
+  }
+
+  // E-Mail Protokoll Box
+  html += '<div style="background:#fff;border-radius:13px;padding:14px 16px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-top:6px;">';
+  html += '<div style="font-size:12px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">📧 Protokoll senden</div>';
+  html += '<div style="margin-bottom:10px;">';
+  html += '<label style="font-size:12px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Chef E-Mail</label>';
+  html += '<input id="bestell-email" type="email" value="'+CHEF_EMAIL+'" placeholder="chef@prima-supermarkt.de" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px;font-size:13px;font-family:inherit;outline:none;" oninput="localStorage.setItem(\'bestell_chef_email\',this.value)">';
+  html += '</div>';
+  html += '<button onclick="bestellEmailSend()" style="width:100%;background:#0f3460;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:800;cursor:pointer;">📤 Protokoll per E-Mail senden</button>';
+  html += '</div>';
+
+  body.innerHTML = html;
+}
+
+function bestellConfirm(itemId) {
+  const workerName = st.name || '';
+  if(!workerName) {
+    alert('Kein Mitarbeiter eingeloggt.');
+    return;
+  }
+  const now = new Date();
+  const timeStr = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  let bestellDone = {};
+  try { bestellDone = JSON.parse(localStorage.getItem(getBestellKey())||'{}'); } catch(e){}
+  bestellDone[itemId] = { by: workerName, at: timeStr, ts: now.getTime() };
+  localStorage.setItem(getBestellKey(), JSON.stringify(bestellDone));
+  renderBestellung();
+  // Aufgaben-Tab Badge aktualisieren
+  try { renderSLPersAufgaben(); } catch(e){}
+}
+
+function bestellEmailSend() {
+  const emailEl = document.getElementById('bestell-email');
+  const to = emailEl ? emailEl.value.trim() : '';
+  if(!to) { alert('Bitte Chef E-Mail eingeben.'); emailEl && emailEl.focus(); return; }
+
+  const today = new Date().toISOString().slice(0,10);
+  const dow = new Date().getDay();
+  const dateStr = new Date().toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+  const todayItems = BESTELL_PLAN.filter(function(p){ return p.orderDays.includes(dow); });
+
+  let bestellDone = {};
+  try { bestellDone = JSON.parse(localStorage.getItem(getBestellKey())||'{}'); } catch(e){}
+
+  const doneCount = todayItems.filter(function(p){ return bestellDone[p.id]; }).length;
+
+  let lines = ['Bestellprotokoll Prima Supermarkt Reutlingen', dateStr, ''];
+  lines.push('Bestätigt: '+doneCount+' / '+todayItems.length);
+  lines.push('');
+  todayItems.forEach(function(item) {
+    const info = bestellDone[item.id];
+    if(info) {
+      lines.push('✓ '+item.name+' – bestätigt von '+info.by+' um '+info.at+' Uhr');
+    } else {
+      lines.push('✗ '+item.name+' – NICHT bestätigt');
+    }
+  });
+  lines.push('');
+  lines.push('Gesendet von: '+(st.name||'–'));
+
+  const subject = encodeURIComponent('Bestellprotokoll '+dateStr);
+  const mailBody = encodeURIComponent(lines.join('\n'));
+  // window.open statt location.href – funktioniert in App und Chat-Vorschau
+  window.open('mailto:'+to+'?subject='+subject+'&body='+mailBody, '_blank');
+
+  // Bestellaufgabe als erledigt im SL-Dashboard markieren
+  localStorage.setItem('bestell_email_sent_' + today, '1');
+  // SL-Dashboard aktualisieren
+  setTimeout(function(){
+    try { renderSL(); } catch(e){}
+    try { renderBestellung(); } catch(e){}
+  }, 300);
+}
+
 
 // ═══════════════════════════════════════════
 // UMSATZ
@@ -6673,6 +6909,9 @@ function renderSLReport(){
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">Aufgabenquote Schichtleiter</div>
     ${buildSLTaskReportSection(last7, now)}
 
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">Bestellquote (letzte 7 Tage)</div>
+    ${buildBestellReportSection(last7, now)}
+
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">Regalpflege</div>
     ${(function(){
       const q7 = calcRegalQuote(7);
@@ -6740,6 +6979,7 @@ function renderSLReport(){
     ${buildNachrichtenReportSection(now)}
     <div style="font-size:9px;color:#ccc;text-align:center;border-top:1px solid #f0f0f0;padding-top:8px;">Prima Supermarkt Reutlingen GmbH · Automatisch generiert</div>
   </div>
+  <button id="btn-report-email" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:13px;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;font-family:inherit;touch-action:manipulation;">📧 Tagesbericht per E-Mail senden</button>
   <div style="margin-top:10px;font-size:12px;color:#888;text-align:center;background:#f4f4f4;border-radius:10px;padding:12px;">
     📸 <strong>Screenshot für Geschäftsleitung:</strong><br>
     iPhone: Seitentaste + Lautstärke hoch<br>
@@ -6754,7 +6994,158 @@ function renderSLReport(){
     if(bHaccp) bHaccp.addEventListener('click', function(){ exportHACCP(); });
     var bCsv = document.getElementById('btn-export-csv');
     if(bCsv) bCsv.addEventListener('click', function(){ exportCSV(); });
+    var bRepEmail = document.getElementById('btn-report-email');
+    if(bRepEmail) bRepEmail.addEventListener('click', function(){ sendReportEmail(); });
   }, 0);
+}
+
+// ═══════════════════════════════════════════
+// BESTELLQUOTE REPORT SECTION
+// ═══════════════════════════════════════════
+function buildBestellReportSection(last7, now) {
+  let totalFaellig = 0, totalInTime = 0, totalBestaetigt = 0;
+
+  const rows = last7.slice().reverse().map(function(d) {
+    const key = dayKey(d);
+    const dow = d.getDay();
+    const items = BESTELL_PLAN.filter(function(p){ return p.orderDays.includes(dow); });
+    if(items.length === 0) return '';
+
+    let bDone = {};
+    try { bDone = JSON.parse(localStorage.getItem('bestell_' + key) || '{}'); } catch(e){}
+
+    const bestaetigt = items.filter(function(p){ return bDone[p.id]; }).length;
+    const inTime = items.filter(function(p){
+      if(!bDone[p.id]) return false;
+      if(p.deadline === '24:00') return true;
+      const confirmTime = bDone[p.id].at || '99:99';
+      return confirmTime <= p.deadline;
+    }).length;
+
+    totalFaellig += items.length;
+    totalBestaetigt += bestaetigt;
+    totalInTime += inTime;
+
+    const pct = items.length > 0 ? Math.round(bestaetigt / items.length * 100) : null;
+    const inTimePct = bestaetigt > 0 ? Math.round(inTime / bestaetigt * 100) : null;
+    const isToday = key === dayKey(now);
+    const col = pct === null ? '#ccc' : pct === 100 ? '#16a34a' : pct >= 50 ? '#f59e0b' : '#ef4444';
+
+    return '<tr style="border-bottom:1px solid #f0f0f0;'+(isToday?'background:#f0f7ff;':'')+'">'+
+      '<td style="padding:5px 8px;font-size:11px;font-weight:'+(isToday?'700':'400')+';">'+dayLabel(d)+(isToday?' 📍':'')+'</td>'+
+      '<td style="padding:5px 4px;text-align:center;font-size:11px;">'+items.length+'</td>'+
+      '<td style="padding:5px 4px;text-align:center;font-weight:700;color:'+col+';font-size:11px;">'+(pct===null?'–':pct+'%')+'</td>'+
+      '<td style="padding:5px 4px;text-align:center;font-size:11px;color:'+(inTimePct===100?'#16a34a':inTimePct!==null&&inTimePct<100?'#ef4444':'#ccc')+'">'+(inTimePct===null?'–':inTimePct+'%')+'</td>'+
+      '</tr>';
+  }).join('');
+
+  const gesamtPct = totalFaellig > 0 ? Math.round(totalBestaetigt / totalFaellig * 100) : 0;
+  const inTimePctGes = totalBestaetigt > 0 ? Math.round(totalInTime / totalBestaetigt * 100) : 0;
+  const colG = gesamtPct === 100 ? '#16a34a' : gesamtPct >= 80 ? '#f59e0b' : '#ef4444';
+  const colT = inTimePctGes === 100 ? '#16a34a' : inTimePctGes >= 80 ? '#f59e0b' : '#ef4444';
+
+  return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">'+
+    '<div style="background:#f0fdf4;border-radius:9px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:900;color:'+colG+';">'+gesamtPct+'%</div><div style="font-size:10px;color:#888;margin-top:2px;">Bestätigt (7T)</div></div>'+
+    '<div style="background:#f0fdf4;border-radius:9px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:900;color:'+colT+';">'+inTimePctGes+'%</div><div style="font-size:10px;color:#888;margin-top:2px;">Pünktlich (7T)</div></div>'+
+    '<div style="background:#f5f5f5;border-radius:9px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:900;color:#0f3460;">'+totalFaellig+'</div><div style="font-size:10px;color:#888;margin-top:2px;">Pos. gesamt</div></div>'+
+    '</div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px;">'+
+    '<tr style="background:#f4f4f4;">'+
+      '<th style="padding:5px 8px;text-align:left;">Tag</th>'+
+      '<th style="padding:5px 4px;text-align:center;">Fällig</th>'+
+      '<th style="padding:5px 4px;text-align:center;">Bestätigt</th>'+
+      '<th style="padding:5px 4px;text-align:center;">Pünktlich</th>'+
+    '</tr>'+rows+'</table>';
+}
+
+// ═══════════════════════════════════════════
+// REPORT PER E-MAIL SENDEN
+// ═══════════════════════════════════════════
+function sendReportEmail() {
+  const REPORT_EMAIL = localStorage.getItem('report_email') || '';
+  const email = prompt('E-Mail-Adresse für den Tagesbericht:', REPORT_EMAIL);
+  if(!email || !email.trim()) return;
+  localStorage.setItem('report_email', email.trim());
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('de-DE', {weekday:'long', day:'2-digit', month:'2-digit', year:'numeric'});
+  const today = now.toISOString().slice(0,10);
+  const dow = now.getDay();
+  const last7 = []; for(let i=0;i<7;i++){const d=new Date(now);d.setDate(d.getDate()-i);last7.push(d);}
+
+  // ── MA-Aufgabenquote ──
+  const weekHist = history.filter(function(h){try{const d=new Date(h.ts.split(', ')[0].split('.').reverse().join('-'));return(now-d)<=7*24*60*60*1000;}catch(e){return false;}});
+  const weekPct = weekHist.length>0?Math.round(weekHist.filter(function(h){return h.done;}).length/weekHist.length*100):0;
+  const weekND = weekHist.filter(function(h){return !h.done;}).length;
+
+  // ── SL-Aufgabenquote ──
+  const slHist = history.filter(function(h){try{const d=new Date(h.ts.split(', ')[0].split('.').reverse().join('-'));return(now-d)<=7*24*60*60*1000&&h.taskText&&slTasks.some(function(t){return t.text===h.taskText;});}catch(e){return false;}});
+  const slDone = slHist.filter(function(h){return h.done;}).length;
+  const slND = slHist.filter(function(h){return !h.done;}).length;
+  const slPct = (slDone+slND)>0?Math.round(slDone/(slDone+slND)*100):0;
+
+  // ── Bestellquote ──
+  const todayItems = BESTELL_PLAN.filter(function(p){return p.orderDays.includes(dow);});
+  let bDoneToday = {};
+  try { bDoneToday = JSON.parse(localStorage.getItem('bestell_'+today)||'{}'); } catch(e){}
+  const bestBestaetigt = todayItems.filter(function(p){return bDoneToday[p.id];}).length;
+  const bestPct = todayItems.length>0?Math.round(bestBestaetigt/todayItems.length*100):100;
+  const bestInTime = todayItems.filter(function(p){
+    if(!bDoneToday[p.id]) return false;
+    if(p.deadline==='24:00') return true;
+    return (bDoneToday[p.id].at||'99:99') <= p.deadline;
+  }).length;
+
+  // ── Umsatz heute ──
+  const uzHeute = umsatzData.find(function(u){return u.date===today;});
+
+  // ── 7-Tage Übersicht ──
+  const lines7 = last7.slice().reverse().map(function(d){
+    const k=dayKey(d);
+    const dh=getHistForDay(d);
+    const done=dh.filter(function(h){return h.done;}).length;
+    const nd=dh.filter(function(h){return !h.done;}).length;
+    const total=done+nd;
+    const pct=total>0?Math.round(done/total*100):null;
+    const uz=umsatzData.find(function(u){return u.date===k;});
+    return dayLabel(d)+(k===today?' (heute)':'')+': MA-Quote '+(pct!==null?pct+'%':'–')+', Umsatz '+(uz?uz.betrag.toLocaleString('de-DE')+'€':'–')+', Kunden '+(uz?uz.kunden:'–');
+  });
+
+  // ── Bestelldetails heute ──
+  const bestLines = todayItems.map(function(p){
+    const info = bDoneToday[p.id];
+    return (info?'✓':'✗')+' '+p.name+(info?' – '+info.by+' um '+info.at+' Uhr (Deadline: '+p.deadline+' Uhr)':' – NICHT bestätigt');
+  });
+
+  const lines = [
+    '=== TAGESBERICHT PRIMA SUPERMARKT REUTLINGEN ===',
+    'Datum: '+dateStr,
+    'Erstellt: '+now.toLocaleTimeString('de-DE'),
+    '',
+    '--- KENNZAHLEN HEUTE ---',
+    'MA-Aufgabenquote (7T): '+weekPct+'% ('+weekND+' nicht erledigt)',
+    'SL-Aufgabenquote (7T): '+slPct+'% ('+slND+' offen)',
+    'Bestellungen heute: '+bestBestaetigt+'/'+todayItems.length+' bestätigt ('+bestPct+'%)',
+    'Bestellungen pünktlich: '+bestInTime+'/'+bestBestaetigt,
+    'Umsatz heute: '+(uzHeute?uzHeute.betrag.toLocaleString('de-DE')+'€':'nicht erfasst'),
+    'Kunden heute: '+(uzHeute?uzHeute.kunden:'nicht erfasst'),
+    '',
+    '--- BESTELLUNGEN HEUTE ---',
+    ...bestLines,
+    '',
+    '--- LETZTE 7 TAGE ---',
+    ...lines7,
+    '',
+    '--- OFFENE AUFGABEN (letzte 7T) ---',
+    'Mitarbeiter nicht erledigt: '+weekND,
+    'Schichtleiter offen: '+slND,
+    '',
+    'Gesendet von Prima Supermarkt App',
+  ];
+
+  const subject = encodeURIComponent('Tagesbericht Prima '+dateStr);
+  const body = encodeURIComponent(lines.join('\n'));
+  window.open('mailto:'+email.trim()+'?subject='+subject+'&body='+body, '_blank');
 }
 
 // ═══════════════════════════════════════════
@@ -7383,6 +7774,7 @@ function submitInventur(){
   const cutoff=new Date();cutoff.setDate(cutoff.getDate()-90);
   inventurHistory=inventurHistory.filter(h=>new Date(h.date)>=cutoff);
   lsSave('inventurHistory',inventurHistory);
+  fbSave('inventurHistory',inventurHistory);
 
   // Alert if differenzen
   if(session.differenzen.length>0){
@@ -9447,6 +9839,7 @@ function saveKrankmeldung() {
   if(!maProfiles[name].krankmeldungen) maProfiles[name].krankmeldungen=[];
   maProfiles[name].krankmeldungen.push({von,bis,ts:new Date().toLocaleString('de-DE')});
   lsSave('maProfiles',maProfiles);
+  fbSave('maProfiles',maProfiles);
   alert('✅ Krankmeldung für '+name+' gespeichert.');
   renderHRKrank();
 }
