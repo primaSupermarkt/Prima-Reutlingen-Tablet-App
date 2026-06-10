@@ -778,10 +778,12 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:var(
   <div class="modal">
     <h3>➕ Aufgabe hinzufügen</h3>
     <select id="at-schicht">
-      <option value="early_bake">Frühschicht – Bake-Off</option>
-      <option value="early_laden">Frühschicht – Laden</option>
-      <option value="mid_laden">Mittelschicht – Laden</option>
-      <option value="late_laden">Spätschicht – Laden</option>
+      <option value="early_bake_off">Frühschicht – Bake-Off</option>
+      <option value="early_frueh_verkauf">Frühschicht – Verkauf</option>
+      <option value="mid_mittel">Mittelschicht</option>
+      <option value="late_spaet_verkauf">Spätschicht – Verkauf</option>
+      <option value="late_spaet_service">Spätschicht – Service</option>
+      <option value="late_sl">Schichtleiter</option>
     </select>
     <input type="text" id="at-time" placeholder="Uhrzeit (z.B. 07:00)">
     <input type="text" id="at-section" placeholder="Abschnitt (z.B. Öffnung)">
@@ -1680,7 +1682,6 @@ const REGAL_GRUPPEN = [
 // ── WOCHENAUFGABEN ────────────────────────────────────────────────────────────────────────
 
 // weeklyTasks: [{id, text, days:[0-6 (0=So,1=Mo...)], schicht:'early'|'mid'|'late'|'all', bereich:'bake'|'laden'|'all', warn, special}]
-localStorage.removeItem('prima_weeklyTasks');
 let weeklyTasks = lsLoad('weeklyTasks', [
   {id:'wt1', text:'Blumen wässern', days:[2,3,6], schicht:'early', bereich:'laden', warn:'', section:'Wochenaufgabe', time:'08:00'},
   {id:'wt2', text:'Slushmaschine reinigen', days:[3], schicht:'early', bereich:'bake', warn:'Mittwoch Frühschicht – vor 09:00 Uhr', section:'Wochenaufgabe', special:'slush', time:'07:00'},
@@ -1723,7 +1724,6 @@ const ROLLEN_DEF = {
 // Admin-erweiterbare Aufgaben pro Rolle
 // Abschnitte: 'start' | 'pause1' | 'pause2' | 'ende'
 const ROLLEN_VERSION = 'v2';
-localStorage.removeItem('prima_rollenAufgaben');
 let rollenAufgaben = lsLoad('rollenAufgaben', {
   // ─── FRÜHSCHICHT – BAKE-OFF ───
   'early_bake_off': [
@@ -5465,11 +5465,21 @@ function checkDelPw(){
 // ADD
 // ═══════════════════════════════════════════
 function saveTask(){
-  const sk=document.getElementById('at-schicht').value;
-  const [schicht,bereich]=sk.split('_');
+  const key=document.getElementById('at-schicht').value;
   const txt=document.getElementById('at-text').value.trim();
   if(!txt)return;
-  tasks.push({id:'t'+Date.now(),schicht,bereich,time:document.getElementById('at-time').value||'00:00',section:document.getElementById('at-section').value||'Allgemein',text:txt,warn:document.getElementById('at-warn').value,ub:document.getElementById('at-ub').checked});
+  if(!rollenAufgaben[key]) rollenAufgaben[key]=[];
+  rollenAufgaben[key].push({
+    id:'adm'+Date.now(),
+    section:document.getElementById('at-section').value||'start',
+    text:txt,
+    warn:document.getElementById('at-warn').value||'',
+    time:document.getElementById('at-time').value||'',
+    ub:document.getElementById('at-ub').checked,
+    adminAdded:true
+  });
+  lsSave('rollenAufgaben', rollenAufgaben);
+  fbSave('rollenAufgaben', rollenAufgaben);
   closeOv('ov-add-task');renderAdmin();
 }
 function saveName(){
