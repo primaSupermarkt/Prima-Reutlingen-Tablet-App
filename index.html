@@ -904,19 +904,7 @@ function initFirebase() {
         try {
           if(doc.exists){ syncFromFirebase(); }
           else { forceSyncToFirebase(); syncFromFirebase(); }
-          // Aufgaben aus Code-Default in localStorage sichern
-          lsSave('rollenAufgaben', rollenAufgaben);
-          // Nach kurzer Verzögerung nach Firebase schreiben (nach syncFromFirebase)
-          setTimeout(function(){
-            try {
-              if(fbReady && db) {
-                db.collection('prima').doc('rollenAufgaben').set({
-                  data: JSON.stringify(rollenAufgaben),
-                  ts: Date.now()
-                }).catch(function(e){ console.log('rollenAufgaben write:', e); });
-              }
-            } catch(e){}
-          }, 3000);
+          // rollenAufgaben wird via syncFromFirebase/onSnapshot geladen – kein lokaler Überschreib-Timeout nötig
         } catch(e){}
       })
       .catch(function(){ if(statusEl)statusEl.innerHTML='<span style="color:#f59e0b;">&#9679; Offline</span>'; });
