@@ -992,7 +992,8 @@ const FB_KEYS = [
   'strafantraege',
   'dienstplan',
   'names',
-  'DP'
+  'DP',
+  'rollenAufgaben'
 ];
 
 function fbSave(key, val) {
@@ -1085,7 +1086,12 @@ function applyFirebaseData(key, val) {
         if(window._slLoggedIn){ try{ renderSL(); }catch(e){} }
         break;
       }
-      // rollenAufgaben wird nicht per onSnapshot synchronisiert (siehe initRollenAufgaben)
+      case 'rollenAufgaben':
+        if(val && typeof val === 'object') {
+          rollenAufgaben = val;
+          lsSaveLocal('rollenAufgaben', val);
+        }
+        break;
       case 'clState': {
         if(!val || typeof val !== 'object') break;
         const _clToday = new Date().toISOString().slice(0,10);
