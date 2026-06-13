@@ -904,8 +904,23 @@ function initFirebase() {
         try {
           if(doc.exists){ syncFromFirebase(); }
           else { forceSyncToFirebase(); syncFromFirebase(); }
-          // rollenAufgaben wird via syncFromFirebase/onSnapshot geladen – kein lokaler Überschreib-Timeout nötig
         } catch(e){}
+        // slTasks und rollenAufgaben SOFORT per .get() laden (nicht nur auf onSnapshot warten)
+        // Verhindert dass gecachte localStorage-Daten die Firebase-Daten verdrängen
+        ['slTasks','rollenAufgaben'].forEach(function(key){
+          try {
+            db.collection('prima').doc(key).get().then(function(d){
+              if(d.exists){
+                try{
+                  const val=JSON.parse(d.data().data);
+                  applyFirebaseData(key, val);
+                  // Sofort in localStorage aktualisieren damit nächster Start stimmt
+                  try{ localStorage.setItem('prima_'+key, JSON.stringify(val)); }catch(e){}
+                }catch(e){}
+              }
+            }).catch(function(){});
+          } catch(e){}
+        });
       })
       .catch(function(){ if(statusEl)statusEl.innerHTML='<span style="color:#f59e0b;">&#9679; Offline</span>'; });
   } catch(e) {
@@ -1690,13 +1705,9 @@ let weeklyTasks = lsLoad('weeklyTasks', [
 ]);
 // weeklyCheckState: {taskId_dateKey → {status, who, ts}}
 let weeklyCheckState = lsLoad('weeklyCheckState', {});
-let slTasks = [
-  {id:'sl1', time:'06:00', section:'Öffnung', text:'Tagesumsatz Vortag eintragen', warn:''},
-  {id:'sl2', time:'08:00', section:'Kontrolle', text:'Checklisten-Status aller Schichten prüfen', warn:''},
-  {id:'sl3', time:'12:00', section:'Mittag', text:'Schichtübergaben kontrollieren', warn:''},
-  {id:'sl4', time:'17:00', section:'Abend', text:'Dienstplan nächste Woche prüfen', warn:''},
-  {id:'sl5', time:'20:00', section:'Tagesabschluss', text:'Tagesumsatz & Kundenzahl eintragen', warn:''},
-];
+// slTasks: IMMER aus Firebase laden – kein localStorage-Fallback
+// (verhindert dass alte gecachte Werte Firebase-Änderungen überschreiben)
+let slTasks = [];
 
 // ── tasks: leeres Array als Fallback (neues System nutzt rollenAufgaben) ──
 let tasks = [];
@@ -1725,7 +1736,9 @@ const ROLLEN_DEF = {
 // Admin-erweiterbare Aufgaben pro Rolle
 // Abschnitte: 'start' | 'pause1' | 'pause2' | 'ende'
 const ROLLEN_VERSION = 'v2';
-let rollenAufgaben = lsLoad('rollenAufgaben', {
+// rollenAufgaben: IMMER aus Firebase laden – localStorage wird ignoriert
+// Hardcoded-Defaults nur als absoluter Offline-Notfallwert (sollte nie gebraucht werden)
+let rollenAufgaben = (function(){ return {
   // ─── FRÜHSCHICHT – BAKE-OFF ───
   'early_bake_off': [
     {id:'ebo_temp', section:'start',  text:'Temperaturkontrolle durchführen',          warn:'Alle Kühl- und Tiefkühlgeräte prüfen', ub:true, special:'temp', oncePerDay:true},
@@ -1797,7 +1810,7 @@ let rollenAufgaben = lsLoad('rollenAufgaben', {
     {id:'sl_5',     section:'ende',   text:'Schichtübergabe vorbereiten',              warn:'', ub:true, special:'ub'},
     {id:'sl_6',     section:'woche',  text:'Freie Tage der Mitarbeiter in HR → Zeiten eintragen', warn:'⚠️ Einmal pro Woche – Gleitzeitkonto bleibt sonst falsch', ub:false},
   ],
-});
+}; })();
 
 // Rollen-Aufgaben: aktiv aus Firebase lesen, bei falscher Version sofort überschreiben
 
