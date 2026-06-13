@@ -2028,12 +2028,137 @@ if(document.readyState === 'loading') {
 // NAV
 // ═══════════════════════════════════════════
 function go(id){
+  // Tagesbericht-Popup: beim ersten Öffnen der Checkliste pro Tag
+  if(id === 's-cl'){
+    const today = new Date().toISOString().slice(0,10);
+    const sentKey = 'tagesbericht_sent_' + today;
+    if(!localStorage.getItem(sentKey)){
+      showTagesberichtPopup(function(){
+        localStorage.setItem(sentKey, '1');
+        _go(id);
+      });
+      return;
+    }
+  }
+  _go(id);
+}
+function _go(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   const target=document.getElementById(id);
   if(target) target.classList.add('active');
   else console.warn('go(): Element nicht gefunden:', id);
   window.scrollTo(0,0);
-  // Kein sessionStorage - immer Home beim Start
+}
+
+function showTagesberichtPopup(onSent){
+  // Vortag berechnen
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate()-1);
+  const yesterdayStr = yesterday.toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+  const yesterdayKey = yesterday.toISOString().slice(0,10);
+
+  // Bericht generieren (Vortag)
+  function buildReport(){
+    const now = yesterday;
+    const dow = now.getDay();
+    const last7 = []; for(let i=0;i<7;i++){const d=new Date(now);d.setDate(d.getDate()-i);last7.push(d);}
+
+    const weekHist = history.filter(function(h){try{const d=new Date(h.ts.split(', ')[0].split('.').reverse().join('-'));return(new Date()-d)<=8*24*60*60*1000;}catch(e){return false;}});
+    const weekPct = weekHist.length>0?Math.round(weekHist.filter(function(h){return h.done;}).length/weekHist.length*100):0;
+    const weekND = weekHist.filter(function(h){return !h.done;}).length;
+
+    const slHist = history.filter(function(h){try{const d=new Date(h.ts.split(', ')[0].split('.').reverse().join('-'));return(new Date()-d)<=8*24*60*60*1000&&h.taskText&&slTasks.some(function(t){return t.text===h.taskText;});}catch(e){return false;}});
+    const slDone = slHist.filter(function(h){return h.done;}).length;
+    const slND = slHist.filter(function(h){return !h.done;}).length;
+    const slPct = (slDone+slND)>0?Math.round(slDone/(slDone+slND)*100):0;
+
+    const todayItems = BESTELL_PLAN.filter(function(p){return p.orderDays.includes(dow);});
+    let bDoneToday = {};
+    try { bDoneToday = JSON.parse(localStorage.getItem('bestell_'+yesterdayKey)||'{}'); } catch(e){}
+    const bestBestaetigt = todayItems.filter(function(p){return bDoneToday[p.id];}).length;
+    const bestPct = todayItems.length>0?Math.round(bestBestaetigt/todayItems.length*100):100;
+    const bestInTime = todayItems.filter(function(p){
+      if(!bDoneToday[p.id]) return false;
+      if(p.deadline==='24:00') return true;
+      return (bDoneToday[p.id].at||'99:99') <= p.deadline;
+    }).length;
+
+    const uzHeute = umsatzData.find(function(u){return u.date===yesterdayKey;});
+
+    const lines7 = last7.slice().reverse().map(function(d){
+      const k=dayKey(d);
+      const dh=getHistForDay(d);
+      const done=dh.filter(function(h){return h.done;}).length;
+      const nd=dh.filter(function(h){return !h.done;}).length;
+      const total=done+nd;
+      const pct=total>0?Math.round(done/total*100):null;
+      const uz=umsatzData.find(function(u){return u.date===k;});
+      return dayLabel(d)+': MA-Quote '+(pct!==null?pct+'%':'–')+', Umsatz '+(uz?uz.betrag.toLocaleString('de-DE')+'€':'–')+', Kunden '+(uz?uz.kunden:'–');
+    });
+
+    const bestLines = todayItems.map(function(p){
+      const info = bDoneToday[p.id];
+      return (info?'✓':'✗')+' '+p.name+(info?' – '+info.by+' um '+info.at+' Uhr':' – NICHT bestätigt');
+    });
+
+    return [
+      '=== TAGESBERICHT PRIMA SUPERMARKT REUTLINGEN ===',
+      'Datum: '+yesterdayStr,
+      'Erstellt: '+new Date().toLocaleTimeString('de-DE'),
+      '',
+      '--- KENNZAHLEN VORTAG ---',
+      'MA-Aufgabenquote (7T): '+weekPct+'% ('+weekND+' nicht erledigt)',
+      'SL-Aufgabenquote (7T): '+slPct+'% ('+slND+' offen)',
+      'Bestellungen: '+bestBestaetigt+'/'+todayItems.length+' bestätigt ('+bestPct+'%)',
+      'Bestellungen pünktlich: '+bestInTime+'/'+bestBestaetigt,
+      'Umsatz: '+(uzHeute?uzHeute.betrag.toLocaleString('de-DE')+'€':'nicht erfasst'),
+      'Kunden: '+(uzHeute?uzHeute.kunden:'nicht erfasst'),
+      '',
+      '--- BESTELLUNGEN VORTAG ---',
+      ...bestLines,
+      '',
+      '--- LETZTE 7 TAGE ---',
+      ...lines7,
+      '',
+      '--- OFFENE AUFGABEN (letzte 7T) ---',
+      'Mitarbeiter nicht erledigt: '+weekND,
+      'Schichtleiter offen: '+slND,
+      '',
+      'Gesendet von Prima Supermarkt App',
+    ].join('\n');
+  }
+
+  // Overlay erstellen
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;';
+
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:28px 22px;max-width:360px;width:100%;text-align:center;">
+      <div style="font-size:40px;margin-bottom:12px;">📧</div>
+      <div style="font-size:19px;font-weight:900;color:#0f0f0f;margin-bottom:8px;">Tagesbericht senden</div>
+      <div style="font-size:13px;color:#666;margin-bottom:24px;line-height:1.5;">
+        Bitte den Tagesbericht von<br><strong>${yesterdayStr}</strong><br>an die Geschäftsleitung senden.
+      </div>
+      <button id="tb-send-btn" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;">
+        📤 Jetzt senden
+      </button>
+      <div style="font-size:11px;color:#aaa;">Nach dem Senden kannst du weitermachen.</div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('tb-send-btn').onclick = function(){
+    const report = buildReport();
+    const subject = encodeURIComponent('Tagesbericht Prima '+yesterdayStr);
+    const body = encodeURIComponent(report);
+    window.open('mailto:info@prima-supermarkt.de?subject='+subject+'&body='+body, '_blank');
+    // Nach kurzem Delay Overlay schließen (Mitarbeiter hat Mail-Client geöffnet)
+    setTimeout(function(){
+      document.body.removeChild(overlay);
+      onSent();
+    }, 1500);
+  };
 }
 function confirmGoHome(){
   go('s-home');
