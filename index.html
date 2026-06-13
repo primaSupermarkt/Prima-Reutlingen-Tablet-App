@@ -2638,17 +2638,27 @@ function showTagesberichtPopup(onSent) {
   ov.appendChild(card);
   document.body.appendChild(ov);
 
+  var _sent = false;
   btn.addEventListener('click', function() {
-    var subject = encodeURIComponent('Tagesbericht Prima ' + yStr);
-    var body = encodeURIComponent('TAGESBERICHT PRIMA REUTLINGEN\n' + yStr + '\n\nGesendet von Prima Supermarkt App');
-    window.location.href = 'mailto:info@prima-supermarkt.de?subject=' + subject + '&body=' + body;
-    btn.textContent = '✅ Gesendet – weiter';
-    btn.style.background = '#0f3460';
-    btn.removeEventListener('click', arguments.callee);
-    btn.addEventListener('click', function() {
+    if (!_sent) {
+      // Ersten Klick: Mail-Link öffnen
+      var subject = encodeURIComponent('Tagesbericht Prima ' + yStr);
+      var body = encodeURIComponent('TAGESBERICHT PRIMA REUTLINGEN\n' + yStr + '\n\nGesendet von Prima Supermarkt App');
+      var a = document.createElement('a');
+      a.setAttribute('href', 'mailto:info@prima-supermarkt.de?subject=' + subject + '&body=' + body);
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener');
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function() { document.body.removeChild(a); }, 500);
+      _sent = true;
+      btn.textContent = '✅ Gesendet – hier tippen um weiterzumachen';
+      btn.style.background = '#0f3460';
+    } else {
+      // Zweiten Klick: Popup schließen
       document.body.removeChild(ov);
       if (typeof onSent === 'function') onSent();
-    });
+    }
   });
 }
 
