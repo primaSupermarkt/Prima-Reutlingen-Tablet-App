@@ -2153,11 +2153,14 @@ function showTagesberichtPopup(onSent){
     const subject = encodeURIComponent('Tagesbericht Prima '+yesterdayStr);
     const body = encodeURIComponent(report);
     window.open('mailto:info@prima-supermarkt.de?subject='+subject+'&body='+body, '_blank');
-    // Nach kurzem Delay Overlay schließen (Mitarbeiter hat Mail-Client geöffnet)
-    setTimeout(function(){
+    // Senden-Button ersetzen durch Bestätigungs-Button
+    const btn = document.getElementById('tb-send-btn');
+    btn.textContent = '✅ Gesendet — weiter';
+    btn.style.background = '#0f3460';
+    btn.onclick = function(){
       document.body.removeChild(overlay);
       onSent();
-    }, 1500);
+    };
   };
 }
 function confirmGoHome(){
