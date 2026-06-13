@@ -2638,7 +2638,7 @@ function showStartTimeDialog(name) { finishLogin(); return; // Startzeit-Dialog 
 function finishLogin() {
   // Tagesbericht-Popup: einmal pro Tag beim ersten Login
   const today = new Date().toISOString().slice(0,10);
-  const sentKey = 'tagesbericht_sent_' + today;
+  const sentKey = 'tb_report_v2_' + today;
   if(!localStorage.getItem(sentKey)){
     showTagesberichtPopup(function(){
       localStorage.setItem(sentKey, '1');
