@@ -2072,19 +2072,13 @@ function showTagesberichtPopup(onSent){
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;';
 
-  overlay.innerHTML = `
-    <div style="background:#fff;border-radius:20px;padding:28px 22px;max-width:360px;width:100%;text-align:center;">
-      <div style="font-size:40px;margin-bottom:12px;">📧</div>
-      <div style="font-size:19px;font-weight:900;color:#0f0f0f;margin-bottom:8px;">Tagesbericht senden</div>
-      <div style="font-size:13px;color:#666;margin-bottom:24px;line-height:1.5;">
-        Bitte den Tagesbericht von<br><strong>${yesterdayStr}</strong><br>an die Geschäftsleitung senden.
-      </div>
-      <button id="tb-send-btn" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;">
-        📤 Jetzt senden
-      </button>
-      <div style="font-size:11px;color:#aaa;">Nach dem Senden kannst du weitermachen.</div>
-    </div>
-  `;
+  overlay.innerHTML = '<div style="background:#fff;border-radius:20px;padding:28px 22px;max-width:360px;width:100%;text-align:center;">'
+    + '<div style="font-size:40px;margin-bottom:12px;">&#128231;</div>'
+    + '<div style="font-size:19px;font-weight:900;color:#0f0f0f;margin-bottom:8px;">Tagesbericht senden</div>'
+    + '<div style="font-size:13px;color:#666;margin-bottom:24px;line-height:1.5;">Bitte den Tagesbericht von<br><strong>' + yesterdayStr + '</strong><br>an die Gesch&#228;ftsleitung senden.</div>'
+    + '<button id="tb-send-btn" style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;">&#128228; Jetzt senden</button>'
+    + '<div style="font-size:11px;color:#aaa;">Nach dem Senden kannst du weitermachen.</div>'
+    + '</div>';
 
   document.body.appendChild(overlay);
 
