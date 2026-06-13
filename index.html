@@ -9468,7 +9468,11 @@ function hrTab(tab) {
     renderHRProfile();
   }
   if(tab==='zuschlag') { renderHRZuschlag(); }
-  if(tab==='gehalt') { renderHRGehalt(); }
+  if(tab==='gehalt'){
+    const gehaltPin=prompt('Gehalt ist geschützt.\nBitte PIN eingeben:');
+    if(gehaltPin!=='0662'){ alert('Falscher PIN.'); currentHRTab='zeiten'; hrTab('zeiten'); return; }
+    renderHRGehalt();
+  }
 }
 
 function renderHR() { hrTab(currentHRTab); }
