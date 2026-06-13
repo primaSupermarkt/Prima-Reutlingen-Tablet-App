@@ -2072,7 +2072,9 @@ function openOv(id){
       pwPinReset(); // Platzhalter werden in pwPinReset gesetzt
       // Test-Modus Hinweis zeigen wenn kein PIN gesetzt
       const hint = document.getElementById('pw-testmode-hint');
-      if(hint) hint.style.display = (!ADMIN_PW || !SL_PW) ? 'block' : 'none';
+      // Hint nur zeigen wenn wirklich kein PW gesetzt ist (auch kein gecachter in localStorage)
+      const _hasPw = (ADMIN_PW && ADMIN_PW.length>=3) || !!localStorage.getItem('prima_adminPw');
+      if(hint) hint.style.display = _hasPw ? 'none' : 'block';
       setTimeout(function(){
         const disp=document.getElementById('pw-pin-display');
         if(!disp) return;
@@ -5146,6 +5148,25 @@ function resetAndEnter() {
 }
 
 function checkPw(){
+  const disp=document.getElementById('pw-pin-display');
+  const entered=disp?disp.getAttribute('data-pin')||'':'';
+  // Firebase lädt ggf. verzögert – localStorage als Fallback
+  let expected=pwTarget==='sl'?SL_PW:ADMIN_PW;
+  if(!expected||expected.length<3){
+    const lsKey=pwTarget==='sl'?'prima_slPw':'prima_adminPw';
+    expected=localStorage.getItem(lsKey)||'';
+  }
+  // Kein Passwort gesetzt = kein Einlass
+  if(!expected||expected.length<3){
+    alert('Kein Passwort gesetzt. Bitte zuerst den Setup-Assistenten abschließen.');
+    pwPinReset();
+    return;
+  }
+  if(entered!==expected){
+    $style('pw-err','display','block');
+    pwPinReset();
+    return;
+  }
   pwPinReset(); closeOv('ov-pw');
   if(pwTarget==='sl'){ window._slLoggedIn=true; renderSL(); go('s-sl'); }
   else { renderAdmin(); go('s-admin'); }
@@ -9428,7 +9449,11 @@ function hrTab(tab) {
   if(tab==='zeiten')   renderHRZeiten();
   if(tab==='urlaub')   renderHRUrlaub();
   if(tab==='krank')    renderHRKrank();
-  if(tab==='profile')  renderHRProfile();
+  if(tab==='profile'){
+    const profPin=prompt('Profile sind geschützt.\nBitte PIN eingeben:');
+    if(profPin!=='0662'){ alert('Falscher PIN.'); currentHRTab='zeiten'; hrTab('zeiten'); return; }
+    renderHRProfile();
+  }
   if(tab==='zuschlag') { renderHRZuschlag(); }
   if(tab==='gehalt') { renderHRGehalt(); }
 }
