@@ -2028,21 +2028,6 @@ if(document.readyState === 'loading') {
 // NAV
 // ═══════════════════════════════════════════
 function go(id){
-  // Tagesbericht-Popup: beim ersten Öffnen der Checkliste pro Tag
-  if(id === 's-cl'){
-    const today = new Date().toISOString().slice(0,10);
-    const sentKey = 'tagesbericht_sent_' + today;
-    if(!localStorage.getItem(sentKey)){
-      showTagesberichtPopup(function(){
-        localStorage.setItem(sentKey, '1');
-        _go(id);
-      });
-      return;
-    }
-  }
-  _go(id);
-}
-function _go(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   const target=document.getElementById(id);
   if(target) target.classList.add('active');
@@ -2152,10 +2137,15 @@ function showTagesberichtPopup(onSent){
     const report = buildReport();
     const subject = encodeURIComponent('Tagesbericht Prima '+yesterdayStr);
     const body = encodeURIComponent(report);
-    window.open('mailto:info@prima-supermarkt.de?subject='+subject+'&body='+body, '_blank');
-    // Senden-Button ersetzen durch Bestätigungs-Button
+    // iOS-sicher: anchor-Link direkt klicken
+    const a = document.createElement('a');
+    a.href = 'mailto:info@prima-supermarkt.de?subject='+subject+'&body='+body;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Button auf Bestätigung umschalten
     const btn = document.getElementById('tb-send-btn');
-    btn.textContent = '✅ Gesendet — weiter';
+    btn.innerHTML = '✅ Gesendet — weiter';
     btn.style.background = '#0f3460';
     btn.onclick = function(){
       document.body.removeChild(overlay);
