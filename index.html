@@ -2665,7 +2665,7 @@ function showTagesberichtPopup(onSent) {
 function finishLogin() {
   // Tagesbericht-Popup einmal pro Tag
   var _tbToday = new Date().toISOString().slice(0, 10);
-  var _tbKey = 'tb_sent_' + _tbToday;
+  var _tbKey = 'tb_sent_v3_' + _tbToday;
   if (!localStorage.getItem(_tbKey)) {
     showTagesberichtPopup(function() {
       localStorage.setItem(_tbKey, '1');
