@@ -1090,6 +1090,13 @@ function applyFirebaseData(key, val) {
         if(val && typeof val === 'object') {
           rollenAufgaben = val;
           lsSaveLocal('rollenAufgaben', val);
+          // Checkliste neu rendern wenn MA eingeloggt (Aufgaben sofort aktualisieren)
+          renderHomeActiveCL();
+          if(st.name) {
+            try{ renderCL(); }catch(e){}
+          }
+          // SL-Dashboard Aufgaben-Tab aktualisieren wenn offen
+          if(window._slLoggedIn) { try{ renderSL(); }catch(e){} }
         }
         break;
       case 'clState': {
