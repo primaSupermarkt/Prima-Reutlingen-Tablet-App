@@ -1050,7 +1050,7 @@ function applyFirebaseData(key, val) {
       case 'onceDoneToday':      onceDoneToday = val; break;
       case 'mitNachrichten':     mitarbeiterNachrichten = val; try{updateSLBadge();}catch(e){} break;
       case 'slNachrichten':      slNachrichten = val; break;
-      case 'schwarzesBrett':     schwarzesBrett = val; break;
+      case 'schwarzesBrett':     schwarzesBrett = val; try{ renderBrett(); }catch(e){} try{ if(window._slLoggedIn) renderSLBrett(); }catch(e){} break;
       case 'defektMeldungen':    defektMeldungen = val; break;
       case 'urlaubAntraege':     urlaubAntraege = val; break;
       case 'maKompetenzen':      maKompetenzen = val; break;
@@ -1117,12 +1117,24 @@ function applyFirebaseData(key, val) {
       case 'clState': {
         if(!val || typeof val !== 'object') break;
         const _clToday = new Date().toISOString().slice(0,10);
-        const _clReset = localStorage.getItem('prima_lastDailyReset');
-        const _clResetDate = _clReset ? JSON.parse(_clReset) : '';
-        // Nach Reset: nur Ergänzungen akzeptieren (neue erledigte Tasks),
-        // aber nie einen leeren/alten Stand übernehmen der den Reset rückgängig macht
-        if(_clResetDate === _clToday && Object.keys(val).length === 0) break;
-        Object.assign(clState, val);
+        // Nur Einträge von HEUTE übernehmen – gestrige Häkchen werden ignoriert
+        var _filtered = {};
+        Object.keys(val).forEach(function(k) {
+          var entry = val[k];
+          // Eintrag hat ein Datum? Nur heute akzeptieren.
+          if(entry && entry.date) {
+            if(entry.date === _clToday) _filtered[k] = entry;
+          } else if(entry && entry.ts) {
+            // Altes Format ohne date: ts-String enthält deutsches Datum – zur Sicherheit akzeptieren
+            // aber nur wenn lastDailyReset nicht heute ist (also kein Reset heute)
+            var _clReset2 = localStorage.getItem('prima_lastDailyReset');
+            var _clResetDate2 = _clReset2 ? JSON.parse(_clReset2) : '';
+            if(_clResetDate2 !== _clToday) _filtered[k] = entry;
+          } else {
+            _filtered[k] = entry;
+          }
+        });
+        Object.assign(clState, _filtered);
         lsSaveLocal('clState', clState);
         try{ renderCL(); }catch(e){}
         try{ renderHomeActiveCL(); }catch(e){}
@@ -1833,7 +1845,18 @@ let backenTasks = [
 // STATE
 // ═══════════════════════════════════════════
 let st={day:'wt',schicht:'early',bereich:'bake',startTime:'',name:'',rolle:'kasse'};
-let clState={};   // taskId → {status:'done'|'nd', who, ts, reason}
+// clState beim Start: nur heutige Einträge aus localStorage laden
+let clState = (function(){
+  var raw = lsLoad('clState', {});
+  var today = new Date().toISOString().slice(0,10);
+  var filtered = {};
+  Object.keys(raw).forEach(function(k){
+    var e = raw[k];
+    if(e && e.date) { if(e.date === today) filtered[k] = e; }
+    else filtered[k] = e; // kein date-Feld → altes Format, vorsichtig behalten
+  });
+  return filtered;
+})();
 let activeLogins=lsLoad('activeLogins',{});  // name → {schicht, bereich, startTime, loginTs, clDone, clTotal}
 let bkState={};
 let bkParentId=null;
@@ -2977,7 +3000,8 @@ function makeTaskRow(task){
 
 function markDone(id){
   const ts=nowStr();
-  clState[id]={status:'done',who:st.name,ts};
+  const todayDate = new Date().toISOString().slice(0,10);
+  clState[id]={status:'done',who:st.name,ts,date:todayDate};
   // clState persistent speichern
   lsSave('clState', clState);
   fbSave('clState', clState);
@@ -3005,7 +3029,8 @@ function showReasons(id){
 
 function markND(id,reason){
   const ts=nowStr();
-  clState[id]={status:'nd',who:st.name,ts,reason};
+  const todayDate = new Date().toISOString().slice(0,10);
+  clState[id]={status:'nd',who:st.name,ts,reason,date:todayDate};
   const taskObj = getMyTasks().find(t=>t.id===id);
   const taskText = taskObj ? taskObj.text : id;
   history.push({ts:new Date().toLocaleString('de-DE'),name:st.name,taskText,done:false,reason,schicht:slbls[st.schicht],bereich:st.bereich,startTime:st.startTime});
@@ -3543,7 +3568,7 @@ function renderPersAufgaben(body) {
         if(idx!==-1){ persAufgaben[idx].status='erledigt'; persAufgaben[idx].erledigt_ts=new Date().toLocaleString('de-DE'); }
         lsSave('persAufgaben', persAufgaben); fbSave('persAufgaben', persAufgaben);
         // Als erledigt in der Checkliste markieren
-        clState['pers_'+a.id] = {status:'done', who:st.name, ts:new Date().toLocaleString('de-DE')};
+        clState['pers_'+a.id] = {status:'done', who:st.name, ts:new Date().toLocaleString('de-DE'), date:new Date().toISOString().slice(0,10)};
         lsSave('clState', clState);
         fbSave('clState', clState);
         renderCL();
@@ -4038,7 +4063,7 @@ function acceptUbergabe(){
   if(ub){
     ub.status='accepted';ub.acceptedBy=st.name;ub.acceptedTs=new Date().toLocaleString('de-DE');
     history.push({ts:new Date().toLocaleString('de-DE'),name:st.name,taskText:'Schichtübergabe angenommen von '+ub.von,done:true,schicht:slbls[st.schicht],bereich:st.bereich,startTime:st.startTime});
-    clState['ub_accept']={status:'done',who:st.name,ts:nowStr(),ubVon:ub.von};
+    clState['ub_accept']={status:'done',who:st.name,ts:nowStr(),ubVon:ub.von,date:new Date().toISOString().slice(0,10)};
     lsSave('ubergaben',ubergaben);lsSave('history',history);
     // ── Regalfotos der abgeschlossenen Schicht aus Storage löschen ──
     try {
@@ -7471,7 +7496,7 @@ function openTempControl() {
     if(tempTask && !clState[tempTask.id]) {
       var wer = entry&&entry.ma ? entry.ma : '';
       var wann = entry&&entry.ts ? (entry.ts.slice(11,16)||'') : '';
-      clState[tempTask.id] = {status:'done', who:wer, ts:wann};
+      clState[tempTask.id] = {status:'done', who:wer, ts:wann, date:todayStr};
       lsSave('clState', clState);
       fbSave('clState', clState);
     }
@@ -7721,14 +7746,15 @@ function submitTemp() {
   if(!istNachtrag) {
     var doneTs = new Date().toLocaleString('de-DE');
     var doneBy = st.name || 'Unbekannt';
+    var doneDateStr = new Date().toISOString().slice(0,10);
     Object.keys(rollenAufgaben).forEach(function(key) {
       (rollenAufgaben[key] || []).forEach(function(t) {
         if(t.special === 'temp') {
-          clState[t.id] = {status:'done', who:doneBy, ts:doneTs};
+          clState[t.id] = {status:'done', who:doneBy, ts:doneTs, date:doneDateStr};
         }
       });
     });
-    clState['eb7'] = {status:'done', who:doneBy, ts:doneTs};
+    clState['eb7'] = {status:'done', who:doneBy, ts:doneTs, date:doneDateStr};
     lsSave('clState', clState);
     fbSave('clState', clState);
   }
