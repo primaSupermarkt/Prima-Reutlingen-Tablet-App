@@ -943,6 +943,7 @@ function forceSyncToFirebase() {
     'ubergaben': ubergaben,
     'umsatzData': umsatzData,
     'tempHistory': tempHistory,
+    'clHistory': clHistory,
     'slushHistory': slushHistory,
     'kaffeeHistory': kaffeeHistory,
     'waschHistory': waschHistory,
@@ -973,6 +974,7 @@ const FB_KEYS = [
   'ubergaben',
   'umsatzData',
   'clState',
+  'clHistory',
   'slCheckState',
   'tempHistory',
   'slushHistory',
@@ -1041,6 +1043,10 @@ function applyFirebaseData(key, val) {
         break;
       }
       case 'tempHistory':        tempHistory = val; break;
+      case 'clHistory':
+        if(Array.isArray(val)) clHistory = val;
+        if(window._slLoggedIn){ try{ renderChecklistWochenuebersicht(); }catch(e){} }
+        break;
       case 'slushHistory':       slushHistory = val; break;
       case 'kaffeeHistory':      kaffeeHistory = val; break;
       case 'waschHistory':       waschHistory = val; break;
@@ -1649,6 +1655,10 @@ const TEMP_DEVICES = [
 
 // tempHistory: [{date, name(MA), readings:[{deviceId, ist, ok, abweichung}], ts}]
 let tempHistory = lsLoad('tempHistory', []);
+// clHistory: Wochen-/Verlaufsübersicht der Checklisten-Erledigung, ein Eintrag pro
+// Mitarbeiter pro Tag (archiviert beim nächtlichen Reset, siehe doMidnightReset):
+// [{date:'2026-07-14', name:'Nino', schicht:'early', rolle:'frueh_verkauf', done:8, total:8, allDone:true}]
+let clHistory = lsLoad('clHistory', []);
 // tempCurrentSession: deviceId → {ist, ok}
 let tempCurrentSession = {};
 // slushHistory: [{date, name, ts}]
@@ -1845,18 +1855,26 @@ let backenTasks = [
 // STATE
 // ═══════════════════════════════════════════
 let st={day:'wt',schicht:'early',bereich:'bake',startTime:'',name:'',rolle:'kasse'};
-// clState beim Start: nur heutige Einträge aus localStorage laden
-let clState = (function(){
+// clState IMMER über diese Funktion aus localStorage laden – filtert zuverlässig
+// auf den heutigen Tag, egal ob beim App-Start, bei Login oder beim Sitzungs-Resume.
+// BUGFIX: früher wurde clState an mehreren Stellen (startCL, "Zur aktiven Liste gehen")
+// roh via lsLoad('clState',{}) neu geladen OHNE Datumsfilter – dadurch konnten
+// Häkchen von gestern (oder von einem anderen Mitarbeiter) an einem neuen Tag
+// wieder auftauchen. Jetzt läuft jeder Ladevorgang über denselben Filter.
+function loadClStateToday(){
   var raw = lsLoad('clState', {});
   var today = new Date().toISOString().slice(0,10);
   var filtered = {};
   Object.keys(raw).forEach(function(k){
     var e = raw[k];
     if(e && e.date) { if(e.date === today) filtered[k] = e; }
-    else filtered[k] = e; // kein date-Feld → altes Format, vorsichtig behalten
+    // kein date-Feld → altes Format ohne Datum wird NICHT mehr automatisch übernommen,
+    // da es sonst dauerhaft als "erledigt" hängen bleiben kann. Im Zweifel: neu abhaken.
   });
   return filtered;
-})();
+}
+// clState beim Start: nur heutige Einträge aus localStorage laden
+let clState = loadClStateToday();
 let activeLogins=lsLoad('activeLogins',{});  // name → {schicht, bereich, startTime, loginTs, clDone, clTotal}
 let bkState={};
 let bkParentId=null;
@@ -2016,6 +2034,36 @@ function saveFirstRunSetup() {
 // ═══════════════════════════════════════════
 function doMidnightReset(){
   const todayStr = new Date().toISOString().slice(0,10);
+  // ── Archivierung: bevor activeLogins gelöscht wird, den Tag der gerade
+  // zu Ende gegangenen Schicht(en) in clHistory sichern. Basis: die "datum"-
+  // Angabe im jeweiligen Login-Eintrag (= der Tag, an dem gearbeitet wurde). ──
+  try {
+    Object.keys(activeLogins||{}).forEach(function(name){
+      const login = activeLogins[name];
+      if(!login || !login.datum) return;
+      // Schon archiviert? (z.B. durch zwischenzeitlichen Reload) → nicht doppelt anlegen
+      const already = clHistory.some(function(h){ return h.date===login.datum && h.name===name; });
+      if(already) return;
+      const total = login.clTotal||0;
+      const done  = login.clDone||0;
+      clHistory.push({
+        date: login.datum,
+        name: name,
+        schicht: login.schicht||'',
+        rolle: login.rolle||login.bereich||'',
+        done: done,
+        total: total,
+        allDone: total>0 && done>=total
+      });
+    });
+    // 14 Tage Aufbewahrung
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-14);
+    const cutoffStr = cutoff.toISOString().slice(0,10);
+    clHistory = clHistory.filter(function(h){ return h.date >= cutoffStr; });
+    lsSave('clHistory', clHistory);
+    fbSave('clHistory', clHistory);
+  } catch(e){ console.warn('[Prima] clHistory-Archivierung fehlgeschlagen', e); }
+
   activeLogins = {};
   clState      = {};
   slCheckState = {};
@@ -2305,7 +2353,7 @@ function showNamePinOverlay(name, onSuccess){
         st.name=name; st.schicht=aktivSession.schicht||'';
         st.rolle=aktivSession.rolle||aktivSession.bereich||'';
         st.bereich=aktivSession.bereich||'';
-        clState=lsLoad('clState',{});
+        clState=loadClStateToday();
         try{renderCL();}catch(e){}
         go('s-cl');
       });
@@ -2464,9 +2512,11 @@ function startCL(name){
     activeLogins[name].loginTs = new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
     lsSave('activeLogins',activeLogins);
     fbSave('activeLogins',activeLogins);
-  // clState komplett aus localStorage laden – kein Datum-Filter
-  // Der Stand gehört dem Mitarbeiter und bleibt bis er explizit gelöscht wird
-  clState = lsLoad('clState', {});
+  // clState IMMER auf den heutigen Tag gefiltert laden (loadClStateToday).
+  // Frühere Version lud hier den kompletten, ungefilterten Stand aus localStorage –
+  // dadurch erschienen Häkchen von gestern (oder von anderen Mitarbeitern) sofort
+  // wieder als "bereits erledigt", sobald sich jemand neu in eine Checkliste einloggte.
+  clState = loadClStateToday();
   updateBadges();
   // Show Schwarzes Brett if unconfirmed messages (nur zeitlich aktive)
   const _todayBrett = new Date().toISOString().slice(0,10);
@@ -4391,6 +4441,179 @@ function askSL(){
   openOv('ov-pw');
 }
 
+// ═══════════════════════════════════════════
+// CHECKLISTEN-ÜBERSICHT (SL-Dashboard)
+// Zeigt pro Mitarbeiter, ob heute eine Checkliste läuft, wie weit sie ist,
+// oder ob der Mitarbeiter heute überhaupt nicht eingeloggt/aktiv war.
+// Ziel: SL sieht auf einen Blick, wer die Checkliste nutzt und wer nicht.
+// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+// WOCHENÜBERSICHT CHECKLISTEN (Mo–Fr)
+// Zeigt pro Mitarbeiter, an wie vielen Arbeitstagen einer Woche die Checkliste
+// komplett abgeschlossen wurde. Basis: clHistory (archiviert jede Nacht beim
+// Reset) + für den heutigen Tag der Live-Stand aus activeLogins.
+// ═══════════════════════════════════════════
+let clWeekOffset = 0; // 0 = aktuelle Woche, -1 = letzte Woche, ...
+
+function getWeekDatesMoFr(offset){
+  const now = new Date();
+  const day = now.getDay(); // 0=So,1=Mo,...,6=Sa
+  const diffToMonday = (day===0 ? -6 : 1-day);
+  const monday = new Date(now);
+  monday.setHours(0,0,0,0);
+  monday.setDate(now.getDate()+diffToMonday+offset*7);
+  const dates=[];
+  for(let i=0;i<5;i++){
+    const d=new Date(monday);
+    d.setDate(monday.getDate()+i);
+    dates.push(d.toISOString().slice(0,10));
+  }
+  return dates;
+}
+
+function isoWeekNumber(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()+4-(d.getDay()||7));
+  const yearStart = new Date(d.getFullYear(),0,1);
+  return Math.ceil((((d-yearStart)/86400000)+1)/7);
+}
+
+// Liefert die Checklisten-Ergebnisse aller Mitarbeiter für ein Datum:
+// - heutiges Datum → live aus activeLogins berechnet (noch nicht archiviert)
+// - vergangene Tage → aus clHistory (beim nächtlichen Reset archiviert)
+function getClResultsForDate(dateStr){
+  const today = new Date().toISOString().slice(0,10);
+  if(dateStr===today){
+    return (names||[]).map(function(n){
+      const login=activeLogins[n];
+      if(!login || login.datum!==today) return null;
+      const total=login.clTotal||0, done=login.clDone||0;
+      return {date:dateStr, name:n, schicht:login.schicht||'', rolle:login.rolle||login.bereich||'', done:done, total:total, allDone: total>0 && done>=total};
+    }).filter(Boolean);
+  }
+  return clHistory.filter(function(h){ return h.date===dateStr; });
+}
+
+function renderChecklistWochenuebersicht(){
+  const container = document.getElementById('cl-week-body');
+  if(!container) return;
+  const dates = getWeekDatesMoFr(clWeekOffset);
+  const dayLabels=['Mo','Di','Mi','Do','Fr'];
+
+  const byName = {};
+  dates.forEach(function(dateStr){
+    getClResultsForDate(dateStr).forEach(function(e){
+      if(!byName[e.name]) byName[e.name]={};
+      byName[e.name][dateStr]=e;
+    });
+  });
+
+  const allNames = Array.from(new Set((names||[]).concat(Object.keys(byName))));
+  const rows = allNames.map(function(n){
+    const days = dates.map(function(dateStr){ return (byName[n] && byName[n][dateStr]) || null; });
+    const workedDays = days.filter(Boolean).length;
+    const completeDays = days.filter(function(d){ return d && d.allDone; }).length;
+    return {name:n, days:days, workedDays:workedDays, completeDays:completeDays};
+  }).filter(function(r){ return r.workedDays>0; })
+    .sort(function(a,b){ return a.completeDays - b.completeDays; });
+
+  const wkStart = new Date(dates[0]+'T00:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});
+  const wkEnd   = new Date(dates[4]+'T00:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});
+
+  let html='';
+  html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+  html+='<button onclick="clWeekOffset--;renderChecklistWochenuebersicht();" style="background:#f4f4f4;border:none;border-radius:8px;padding:8px 12px;font-weight:800;cursor:pointer;font-family:inherit;">‹</button>';
+  html+='<div style="font-size:13px;font-weight:800;color:#111;">KW '+isoWeekNumber(dates[0])+' · '+wkStart+' – '+wkEnd+'</div>';
+  html+='<button '+(clWeekOffset>=0?'disabled style="opacity:.3;background:#f4f4f4;border:none;border-radius:8px;padding:8px 12px;font-weight:800;font-family:inherit;"':'style="background:#f4f4f4;border:none;border-radius:8px;padding:8px 12px;font-weight:800;cursor:pointer;font-family:inherit;"')+' onclick="clWeekOffset++;renderChecklistWochenuebersicht();">›</button>';
+  html+='</div>';
+
+  if(!rows.length){
+    html+='<div style="text-align:center;padding:20px 0;color:#9ca3af;font-size:13px;">Keine Daten für diese Woche'+(clWeekOffset===0?' (heute noch niemand eingeloggt).':'.')+'</div>';
+  } else {
+    html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:340px;">';
+    html+='<tr style="text-align:left;color:#888;"><th style="padding:4px 6px;font-weight:700;">Mitarbeiter</th>'+
+      dayLabels.map(function(l){return '<th style="padding:4px 6px;text-align:center;font-weight:700;">'+l+'</th>';}).join('')+
+      '<th style="padding:4px 6px;text-align:center;font-weight:700;">Komplett</th></tr>';
+    rows.forEach(function(r){
+      html+='<tr style="border-top:1px solid #f3f4f6;">';
+      html+='<td style="padding:6px;font-weight:700;color:#111;white-space:nowrap;">'+r.name+'</td>';
+      r.days.forEach(function(d){
+        let cell='<span style="color:#d1d5db;">–</span>';
+        if(d){
+          cell = d.allDone
+            ? '<span style="color:#16a34a;font-weight:800;">✓</span>'
+            : '<span style="color:#dc2626;font-weight:800;">'+d.done+'/'+d.total+'</span>';
+        }
+        html+='<td style="padding:6px;text-align:center;">'+cell+'</td>';
+      });
+      const pctColor = r.workedDays>0 && r.completeDays===r.workedDays ? '#16a34a' : (r.completeDays===0?'#dc2626':'#b45309');
+      html+='<td style="padding:6px;text-align:center;font-weight:800;color:'+pctColor+';">'+r.completeDays+' / '+r.workedDays+'</td>';
+      html+='</tr>';
+    });
+    html+='</table></div>';
+    const zeroRows = rows.filter(function(r){ return r.completeDays===0; });
+    if(zeroRows.length){
+      html+='<div style="font-size:12px;color:#dc2626;font-weight:700;margin-top:10px;">⚠ '+zeroRows.map(function(r){return r.name;}).join(', ')+' – diese Woche noch keine Checkliste komplett abgeschlossen.</div>';
+    }
+  }
+  container.innerHTML=html;
+}
+
+function buildChecklistUebersichtPanel(){
+  const wrap=document.createElement('div');
+  wrap.style.cssText='background:#fff;border-radius:13px;padding:14px 16px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:12px;';
+
+  const today = new Date().toISOString().slice(0,10);
+  const slbMap={'early':'Früh','mid':'Mittel','late':'Spät'};
+
+  const rows = (names||[]).map(function(n){
+    const login = activeLogins[n];
+    const heuteAktiv = login && login.datum===today && login.aktiv!==false;
+    if(!heuteAktiv){
+      return {name:n, status:'none'};
+    }
+    const total = login.clTotal||0;
+    const done  = login.clDone||0;
+    let status='progress';
+    if(total>0 && done===0) status='zero';       // eingeloggt, aber noch nichts abgehakt
+    if(total>0 && done>=total) status='done';
+    return {name:n, status:status, schicht:login.schicht, rolle:login.rolle||login.bereich, done:done, total:total, lastSeen:login.lastSeen||login.loginTs};
+  });
+
+  const notLoggedIn = rows.filter(r=>r.status==='none');
+  const zeroProgress = rows.filter(r=>r.status==='zero');
+  const inProgress   = rows.filter(r=>r.status==='progress');
+  const done         = rows.filter(r=>r.status==='done');
+
+  const order = zeroProgress.concat(notLoggedIn).concat(inProgress).concat(done);
+
+  let html='<div style="font-size:12px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">✅ Checklisten-Nutzung heute</div>';
+
+  if(notLoggedIn.length+zeroProgress.length===0){
+    html+='<div style="font-size:12px;color:#16a34a;font-weight:700;margin-bottom:8px;">Alle eingeloggten Mitarbeiter arbeiten aktiv an ihrer Checkliste.</div>';
+  } else {
+    const warnNames = zeroProgress.map(r=>r.name).concat(notLoggedIn.map(r=>r.name));
+    html+='<div style="font-size:12px;color:#dc2626;font-weight:700;margin-bottom:10px;">⚠ '+warnNames.length+' ohne aktive Checklisten-Nutzung: '+warnNames.join(', ')+'</div>';
+  }
+
+  order.forEach(function(r){
+    let dot='#9ca3af', label='Nicht eingeloggt heute';
+    if(r.status==='zero'){ dot='#dc2626'; label='Eingeloggt'+(slbMap[r.schicht]?' · '+slbMap[r.schicht]:'')+(r.rolle?' · '+r.rolle:'')+' – noch 0 Punkte abgehakt'; }
+    if(r.status==='progress'){ dot='#f59e0b'; label='In Arbeit'+(r.rolle?' · '+r.rolle:'')+' – '+r.done+' / '+r.total+' Punkte'; }
+    if(r.status==='done'){ dot='#16a34a'; label='Fertig'+(r.rolle?' · '+r.rolle:'')+' – '+r.done+' / '+r.total+' Punkte'; }
+    html+='<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid #f3f4f6;">'+
+      '<div style="width:9px;height:9px;border-radius:50%;background:'+dot+';flex-shrink:0;"></div>'+
+      '<div style="flex:1;min-width:0;">'+
+        '<div style="font-size:13px;font-weight:700;color:#111;">'+r.name+'</div>'+
+        '<div style="font-size:11px;color:#888;">'+label+(r.lastSeen?' · zuletzt '+r.lastSeen+' Uhr':'')+'</div>'+
+      '</div>'+
+    '</div>';
+  });
+
+  wrap.innerHTML=html;
+  return wrap;
+}
+
 function renderSL(){
   const body=document.getElementById('sl-tab-dash');
   if(!body) return;
@@ -4424,6 +4647,16 @@ function renderSL(){
     banner.addEventListener('click', function(){ openBestellung(); });
     body.appendChild(banner);
   })();
+
+  // ── CHECKLISTEN-ÜBERSICHT (wer arbeitet heute an einer Checkliste, wer nicht) ──
+  body.appendChild(buildChecklistUebersichtPanel());
+
+  // ── WOCHENÜBERSICHT (Mo–Fr, wer hat wie oft komplett abgeschlossen) ──
+  const clWeekCard = document.createElement('div');
+  clWeekCard.style.cssText='background:#fff;border-radius:13px;padding:14px 16px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:12px;';
+  clWeekCard.innerHTML='<div style="font-size:12px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">📅 Wochenübersicht Checklisten (Mo–Fr)</div><div id="cl-week-body"></div>';
+  body.appendChild(clWeekCard);
+  try{ renderChecklistWochenuebersicht(); }catch(e){}
 
   // ── FIREBASE NEU LADEN Button ──
   const syncRow = document.createElement('div');
@@ -6286,18 +6519,21 @@ function slTab(tab) {
 // ═══════════════════════════════════════════
 // BESTELLCHECKLISTE
 // ═══════════════════════════════════════════
+// Bestell- und Liefercheckliste KST 61/1737, gültig ab 14.07.2026
+// orderDays: 0=So,1=Mo,2=Di,3=Mi,4=Do,5=Fr,6=Sa
 const BESTELL_PLAN = [
-  { id:"obst",    name:"Obst / Gemüse",              deadline:"10:45", lager:227, orderDays:[3,4] },
-  { id:"mopro",   name:"Mopro",                      deadline:"24:00", lager:228, orderDays:[3,4,6] },
-  { id:"metz",    name:"Fleisch / Metzgerei",         deadline:"09:00", lager:229, orderDays:[3,4] },
-  { id:"sb48",    name:"SB-Fleisch 48Std",            deadline:"10:00", lager:229, orderDays:[3,4,6] },
-  { id:"sb72",    name:"SB-Fleisch 72Std",            deadline:"09:00", lager:229, orderDays:[4,6,1] },
-  { id:"sb72_1x", name:"SB-Fleisch 72Std (1×/Woche)",deadline:"09:00", lager:229, orderDays:[4] },
-  { id:"kolo",    name:"Kolo national",               deadline:"22:00", lager:500, orderDays:[4] },
-  { id:"nonfood", name:"Nonfood",                     deadline:"22:00", lager:4,   orderDays:[4] },
-  { id:"kolo225", name:"Kolo (Lager 225)",            deadline:"22:00", lager:225, orderDays:[4,1] },
-  { id:"tk",      name:"Tiefkühl",                    deadline:"22:00", lager:226, orderDays:[4,1] },
-  { id:"brot",    name:"Glockenbrot",                 deadline:"11:00", lager:null,orderDays:[2,3,4,5,6] },
+  { id:"obst",    name:"Obst / Gemüse",                        deadline:"10:45", lager:227, orderDays:[1,3,4,6] },
+  { id:"mopro",   name:"Mopro",                                deadline:"09:45", lager:228, orderDays:[1,3,4,6] },
+  { id:"service", name:"Servicetheke / Bedienware",            deadline:"09:00", lager:229, orderDays:[1,3,4,6] },
+  { id:"sb48",    name:"SB-Fleisch, -Fisch, PP W+K 48-Std.",    deadline:"10:00", lager:229, orderDays:[1,3,4,6] },
+  { id:"sb72",    name:"SB-Fleisch-72Std / Kalb",               deadline:"09:00", lager:229, orderDays:[1,3,4,6] },
+  { id:"sb72_1x", name:"SB-Fleisch-72Std (1×/Woche)",           deadline:"09:00", lager:229, orderDays:[4] },
+  { id:"kolo",    name:"Kolo national",                        deadline:"22:00", lager:500, orderDays:[5] },
+  { id:"kolo_owd",name:"Kolo national OWD",                    deadline:"22:00", lager:517, orderDays:[5] },
+  { id:"nonfood", name:"Nonfood",                               deadline:"22:00", lager:4,   orderDays:[5] },
+  { id:"kolo225", name:"Kolo (Lager 225)",                     deadline:"22:00", lager:225, orderDays:[2,5] },
+  { id:"tk",      name:"Tiefkühl",                              deadline:"22:00", lager:226, orderDays:[2,5] },
+  { id:"brot",    name:"Glockenbrot",                          deadline:"11:00", lager:null,orderDays:[1,2,3,4,5,6] },
 ];
 
 function openBestellung() {
