@@ -6520,19 +6520,22 @@ function slTab(tab) {
 // BESTELLCHECKLISTE
 // ═══════════════════════════════════════════
 // Bestell- und Liefercheckliste KST 61/1737, gültig ab 14.07.2026
+// WICHTIG: Die Quelltabelle ist eine Matrix – die Spalte (Mo-Sa) ist der Bestelltag,
+// der Wert in der Zelle ist nur der zugehörige Liefertag (informativ). Per exakter
+// Tabellen-Extraktion (pdfplumber, spaltengenau) + Abgleich mit der Praxis ermittelt:
 // orderDays: 0=So,1=Mo,2=Di,3=Mi,4=Do,5=Fr,6=Sa
 const BESTELL_PLAN = [
-  { id:"obst",    name:"Obst / Gemüse",                        deadline:"10:45", lager:227, orderDays:[1,3,4,6] },
-  { id:"mopro",   name:"Mopro",                                deadline:"09:45", lager:228, orderDays:[1,3,4,6] },
-  { id:"service", name:"Servicetheke / Bedienware",            deadline:"09:00", lager:229, orderDays:[1,3,4,6] },
-  { id:"sb48",    name:"SB-Fleisch, -Fisch, PP W+K 48-Std.",    deadline:"10:00", lager:229, orderDays:[1,3,4,6] },
+  { id:"obst",    name:"Obst / Gemüse",                        deadline:"10:45", lager:227, orderDays:[2,3,5,6] },
+  { id:"mopro",   name:"Mopro",                                deadline:"09:45", lager:228, orderDays:[2,3,5,6] },
+  { id:"service", name:"Servicetheke / Bedienware",            deadline:"09:00", lager:229, orderDays:[2,3,5,6] },
+  { id:"sb48",    name:"SB-Fleisch, -Fisch, PP W+K 48-Std.",    deadline:"10:00", lager:229, orderDays:[1,2,4,5] },
   { id:"sb72",    name:"SB-Fleisch-72Std / Kalb",               deadline:"09:00", lager:229, orderDays:[1,3,4,6] },
-  { id:"sb72_1x", name:"SB-Fleisch-72Std (1×/Woche)",           deadline:"09:00", lager:229, orderDays:[4] },
-  { id:"kolo",    name:"Kolo national",                        deadline:"22:00", lager:500, orderDays:[5] },
-  { id:"kolo_owd",name:"Kolo national OWD",                    deadline:"22:00", lager:517, orderDays:[5] },
-  { id:"nonfood", name:"Nonfood",                               deadline:"22:00", lager:4,   orderDays:[5] },
-  { id:"kolo225", name:"Kolo (Lager 225)",                     deadline:"22:00", lager:225, orderDays:[2,5] },
-  { id:"tk",      name:"Tiefkühl",                              deadline:"22:00", lager:226, orderDays:[2,5] },
+  { id:"sb72_1x", name:"SB-Fleisch-72Std (1×/Woche)",           deadline:"09:00", lager:229, orderDays:[1] },
+  { id:"kolo",    name:"Kolo national",                        deadline:"22:00", lager:500, orderDays:[2] },
+  { id:"kolo_owd",name:"Kolo national OWD",                    deadline:"22:00", lager:517, orderDays:[1] },
+  { id:"nonfood", name:"Nonfood",                               deadline:"22:00", lager:4,   orderDays:[2] },
+  { id:"kolo225", name:"Kolo (Lager 225)",                     deadline:"22:00", lager:225, orderDays:[3,6] },
+  { id:"tk",      name:"Tiefkühl",                              deadline:"22:00", lager:226, orderDays:[3,6] },
   { id:"brot",    name:"Glockenbrot",                          deadline:"11:00", lager:null,orderDays:[1,2,3,4,5,6] },
 ];
 
