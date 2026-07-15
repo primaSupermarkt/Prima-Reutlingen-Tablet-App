@@ -1932,9 +1932,20 @@ let gsEditId = null;
 // egal was zuvor aus localStorage/Firebase hineingeschrieben wurde (defensiv gegen
 // kaputte/alte Datensätze – verhindert Abstürze beim Rendern von Admin/SL/Checkliste).
 function gsNormalize(){
-  if(!Array.isArray(gsTermine)) gsTermine = GS_DEFAULT_TERMINE;
-  if(!gsSettings || typeof gsSettings!=='object') gsSettings = {enabled:true, testMode:false};
-  if(!Array.isArray(gsConfirmations)) gsConfirmations = [];
+  // Absichtlich sehr defensiv: diese Funktion wird bei jedem Render von
+  // Home/Checkliste/SL/Admin aufgerufen und darf UNTER KEINEN UMSTÄNDEN
+  // eine Exception werfen, da das sonst den kompletten Login/Render-Vorgang
+  // blockieren könnte (z.B. wenn Firebase kaputte/fehlende Daten liefert).
+  try{
+    if(!Array.isArray(gsTermine)) gsTermine = GS_DEFAULT_TERMINE;
+    if(!gsSettings || typeof gsSettings!=='object') gsSettings = {enabled:true, testMode:false};
+    if(!Array.isArray(gsConfirmations)) gsConfirmations = [];
+  } catch(e){
+    console.warn('[gsNormalize] Fehler, setze auf Standardwerte zurück:', e);
+    try{ gsTermine = GS_DEFAULT_TERMINE; }catch(e2){}
+    try{ gsSettings = {enabled:true, testMode:false}; }catch(e2){}
+    try{ gsConfirmations = []; }catch(e2){}
+  }
 }
 
 // Heutiges Datum (Kalendertag) in Europe/Berlin, unabhängig von Geräte-Zeitzone
@@ -1948,60 +1959,76 @@ function gsBerlinDateStr(d){
 }
 // Reine Kalender-Arithmetik auf 'YYYY-MM-DD'-Strings (DST-sicher, da über UTC gerechnet wird)
 function gsAddDaysStr(dateStr, n){
-  const p = dateStr.split('-').map(Number);
-  const nd = new Date(Date.UTC(p[0], p[1]-1, p[2]) + n*86400000);
-  return nd.getUTCFullYear()+'-'+String(nd.getUTCMonth()+1).padStart(2,'0')+'-'+String(nd.getUTCDate()).padStart(2,'0');
+  try{
+    const p = String(dateStr).split('-').map(Number);
+    if(p.length!==3 || p.some(isNaN)) return dateStr;
+    const nd = new Date(Date.UTC(p[0], p[1]-1, p[2]) + n*86400000);
+    return nd.getUTCFullYear()+'-'+String(nd.getUTCMonth()+1).padStart(2,'0')+'-'+String(nd.getUTCDate()).padStart(2,'0');
+  } catch(e){ return dateStr; }
 }
 function gsFmtDate(dateStr){
-  if(!dateStr) return '';
-  const p = dateStr.split('-'); const mo=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-  return parseInt(p[2],10)+'. '+mo[parseInt(p[1],10)-1]+' '+p[0];
+  try{
+    if(!dateStr) return '';
+    const p = String(dateStr).split('-'); const mo=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+    if(p.length!==3) return String(dateStr);
+    return parseInt(p[2],10)+'. '+mo[parseInt(p[1],10)-1]+' '+p[0];
+  } catch(e){ return String(dateStr||''); }
 }
 // Liefert den Erinnerungstag (Abholtermin - 1 Kalendertag) zu einem Termin
-function gsReminderDayStr(termin){ return termin ? gsAddDaysStr(termin.datum,-1) : null; }
+function gsReminderDayStr(termin){ try{ return termin ? gsAddDaysStr(termin.datum,-1) : null; }catch(e){ return null; } }
 // Liefert den aktuell aktiven Termin (dessen Erinnerungstag heute ist) oder null
 function gsGetActiveTermin(){
-  if(!gsSettings || (!gsSettings.enabled && !gsSettings.testMode)) return null;
-  if(!Array.isArray(gsTermine) || !gsTermine.length) return null;
-  const today = gsBerlinDateStr();
-  if(gsSettings.testMode){
-    // Testmodus: zeigt den nächsten bevorstehenden (oder aktuellen) Termin sofort an
-    const upcoming = gsTermine.filter(function(t){ return t && t.datum && t.datum >= today; }).sort(function(a,b){ return a.datum<b.datum?-1:1; });
-    return upcoming[0] || gsTermine.slice().sort(function(a,b){return a.datum<b.datum?-1:1;})[0] || null;
-  }
-  return gsTermine.find(function(t){ return t && t.datum && gsReminderDayStr(t)===today; }) || null;
+  try{
+    gsNormalize();
+    if(!gsSettings || (!gsSettings.enabled && !gsSettings.testMode)) return null;
+    if(!Array.isArray(gsTermine) || !gsTermine.length) return null;
+    const today = gsBerlinDateStr();
+    if(gsSettings.testMode){
+      // Testmodus: zeigt den nächsten bevorstehenden (oder aktuellen) Termin sofort an
+      const upcoming = gsTermine.filter(function(t){ return t && t.datum && t.datum >= today; }).sort(function(a,b){ return a.datum<b.datum?-1:1; });
+      return upcoming[0] || gsTermine.slice().sort(function(a,b){return a.datum<b.datum?-1:1;})[0] || null;
+    }
+    return gsTermine.find(function(t){ return t && t.datum && gsReminderDayStr(t)===today; }) || null;
+  } catch(e){ console.warn('[gsGetActiveTermin] Fehler:', e); return null; }
 }
 function gsHasConfirmed(name, reminderDay){
-  if(!name || !reminderDay || !Array.isArray(gsConfirmations)) return false;
-  return gsConfirmations.some(function(c){ return c && c.name===name && c.reminderDatum===reminderDay; });
+  try{
+    if(!name || !reminderDay || !Array.isArray(gsConfirmations)) return false;
+    return gsConfirmations.some(function(c){ return c && c.name===name && c.reminderDatum===reminderDay; });
+  } catch(e){ return false; }
 }
 function gsConfirmationsForDay(reminderDay){
-  if(!Array.isArray(gsConfirmations)) return [];
-  return gsConfirmations.filter(function(c){ return c && c.reminderDatum===reminderDay; });
+  try{
+    if(!Array.isArray(gsConfirmations)) return [];
+    return gsConfirmations.filter(function(c){ return c && c.reminderDatum===reminderDay; });
+  } catch(e){ return []; }
 }
 function gsConfirm(){
-  const termin = gsGetActiveTermin();
-  if(!termin || !st.name) return;
-  const reminderDay = gsReminderDayStr(termin);
-  if(gsHasConfirmed(st.name, reminderDay)) return; // gilt nur für den jeweiligen Mitarbeiter, einmal genügt
-  const now = new Date();
-  gsConfirmations.push({
-    id: 'gsc'+Date.now(),
-    name: st.name,
-    reminderDatum: reminderDay,
-    pickupDatum: termin.datum,
-    zeit: now.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}),
-    ts: now.toLocaleString('de-DE'),
-    schicht: st.schicht||'',
-    checkliste: st.bereich||st.rolle||''
-  });
-  lsSave('gsConfirmations', gsConfirmations);
-  fbSave('gsConfirmations', gsConfirmations);
+  try{
+    const termin = gsGetActiveTermin();
+    if(!termin || !st.name) return;
+    const reminderDay = gsReminderDayStr(termin);
+    if(gsHasConfirmed(st.name, reminderDay)) return; // gilt nur für den jeweiligen Mitarbeiter, einmal genügt
+    const now = new Date();
+    gsConfirmations.push({
+      id: 'gsc'+Date.now(),
+      name: st.name,
+      reminderDatum: reminderDay,
+      pickupDatum: termin.datum,
+      zeit: now.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}),
+      ts: now.toLocaleString('de-DE'),
+      schicht: st.schicht||'',
+      checkliste: st.bereich||st.rolle||''
+    });
+    try{ lsSave('gsConfirmations', gsConfirmations); }catch(e){}
+    try{ fbSave('gsConfirmations', gsConfirmations); }catch(e){}
+  } catch(e){ console.warn('[gsConfirm] Fehler:', e); }
 }
 // Baut das gelbe Warnfeld. Zeigt Bestätigungs-Button falls ein Mitarbeiter angemeldet ist
 // und noch nicht bestätigt hat; sonst den "bestätigt"-Hinweis. Gibt null zurück wenn kein
 // Termin aktiv ist.
 function gsBuildBanner(){
+ try{
   const termin = gsGetActiveTermin();
   if(!termin) return null;
   const reminderDay = gsReminderDayStr(termin);
@@ -2038,19 +2065,24 @@ function gsBuildBanner(){
     }
   }
   return wrap;
+ } catch(e){ console.warn('[gsBuildBanner] Fehler, Banner wird übersprungen:', e); return null; }
 }
 // Rendert das Banner auf der Startseite (auch ohne Login sichtbar)
 function gsRenderHomeBanner(){
-  gsNormalize();
-  const box=document.getElementById('gs-home-banner');
-  if(!box) return;
-  box.innerHTML='';
-  const el=gsBuildBanner();
-  if(el){ box.style.display='block'; box.appendChild(el); }
-  else { box.style.display='none'; }
+  try{
+    gsNormalize();
+    const box=document.getElementById('gs-home-banner');
+    if(!box) return;
+    box.innerHTML='';
+    const el=gsBuildBanner();
+    if(el){ box.style.display='block'; box.appendChild(el); }
+    else { box.style.display='none'; }
+  } catch(e){ console.warn('[gsRenderHomeBanner] Fehler, Banner wird übersprungen:', e); }
 }
 // Übersichts-Card für die Schichtleiterkonsole: wer hat bestätigt, wer nicht
 function gsRenderSLCard(body){
+ try{
+  gsNormalize();
   const termin = gsGetActiveTermin();
   const card=document.createElement('div');
   card.style.cssText='background:#fff;border-radius:13px;padding:14px 16px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:12px;border-left:4px solid #f2c200;';
@@ -2061,7 +2093,7 @@ function gsRenderSLCard(body){
   }
   const reminderDay = gsReminderDayStr(termin);
   const todayBerlin = gsBerlinDateStr();
-  const todayLogins = names.filter(function(n){ return activeLogins[n] && activeLogins[n].aktiv!==false && activeLogins[n].datum===todayBerlin; });
+  const todayLogins = (Array.isArray(names)?names:[]).filter(function(n){ return activeLogins[n] && activeLogins[n].aktiv!==false && activeLogins[n].datum===todayBerlin; });
   const confirmedList = gsConfirmationsForDay(reminderDay);
   const confirmedNames = confirmedList.map(function(c){ return c.name; });
   const missing = todayLogins.filter(function(n){ return confirmedNames.indexOf(n)===-1; });
@@ -2081,6 +2113,7 @@ function gsRenderSLCard(body){
   }
   card.innerHTML = html;
   body.appendChild(card);
+ } catch(e){ console.warn('[gsRenderSLCard] Fehler, Karte wird übersprungen:', e); }
 }
 
 // ═══════════════════════════════════════════
@@ -2172,9 +2205,57 @@ setInterval(function(){
 // Zeigt einen Einrichtungs-Assistenten.
 // ═══════════════════════════════════════════
 function checkFirstRun() {
-  if(ADMIN_PW && SL_PW) return; // Bereits eingerichtet
-  // Sofort zeigen – kein setTimeout nötig, DOM ist bereits bereit
-  showFirstRunSetup();
+  // WICHTIG: Diese App läuft auch auf den privaten Handys der Mitarbeiter (jeweils
+  // eigener, leerer localStorage). Die PINs sind aber bereits zentral in Firebase
+  // gespeichert. Früher wurde hier nur der LOKALE Stand (ADMIN_PW/SL_PW) geprüft –
+  // das führte zu einem Race Condition: Firebase hatte die PINs oft noch nicht
+  // geladen (asynchron!), also dachte die App fälschlich "nicht eingerichtet" und
+  // zeigte Mitarbeitern den Admin-Einrichtungsdialog. Jetzt wird VOR jeder Anzeige
+  // aktiv und direkt bei Firebase nachgefragt, ob die PINs dort schon existieren.
+  if(ADMIN_PW && SL_PW) return; // Bereits lokal bekannt – nichts zu tun
+
+  // Bis zu ~6 Sekunden auf eine Firebase-Verbindung warten (Handy kann langsames
+  // Netz haben), dann live bei Firebase nachfragen, BEVOR der Dialog gezeigt wird.
+  let waited = 0;
+  const waitForFb = function(){
+    if(fbReady && db){
+      Promise.all([
+        db.collection('prima').doc('adminPw').get().catch(function(){ return null; }),
+        db.collection('prima').doc('slPw').get().catch(function(){ return null; })
+      ]).then(function(docs){
+        try{
+          const adminDoc = docs[0], slDoc = docs[1];
+          if(adminDoc && adminDoc.exists){
+            try{ const v = JSON.parse(adminDoc.data().data); if(v&&v.length>=3){ ADMIN_PW=v; localStorage.setItem('prima_adminPw',v); } }catch(e){}
+          }
+          if(slDoc && slDoc.exists){
+            try{ const v = JSON.parse(slDoc.data().data); if(v&&v.length>=3){ SL_PW=v; localStorage.setItem('prima_slPw',v); } }catch(e){}
+          }
+        }catch(e){}
+        // Nur noch anzeigen, wenn WIRKLICH bei Firebase (und lokal) nichts existiert –
+        // also ein echtes Erststart-Szenario, kein Mitarbeiter-Handy mit bereits
+        // eingerichtetem Firebase-Projekt.
+        if(!ADMIN_PW || !SL_PW){ showFirstRunSetup(); }
+      }).catch(function(){
+        // Firebase-Anfrage fehlgeschlagen (z.B. Berechtigungsfehler) – im Zweifel
+        // NICHT den Dialog zeigen, um Mitarbeiter nicht fälschlich als Admin zu behandeln.
+        console.warn('[checkFirstRun] Firebase-Abfrage fehlgeschlagen, Setup-Dialog wird sicherheitshalber NICHT gezeigt.');
+      });
+      return;
+    }
+    waited += 200;
+    if(waited >= 6000){
+      // Kein Firebase nach 6s erreichbar (z.B. komplett offline UND noch nie synchronisiert).
+      // Nur dann den alten, rein lokalen Check als letzten Fallback verwenden.
+      if(!ADMIN_PW || !SL_PW){
+        console.warn('[checkFirstRun] Kein Firebase erreichbar, verwende lokalen Fallback-Check.');
+        showFirstRunSetup();
+      }
+      return;
+    }
+    setTimeout(waitForFb, 200);
+  };
+  waitForFb();
 }
 
 function showFirstRunSetup() {
@@ -2703,7 +2784,13 @@ function getMyTasks(){
   }
 }
 function startCL(name){
-  st.name=name;
+  // WICHTIG (fail-safe): Der komplette Funktionskörper läuft in try/catch mit einem
+  // finally-Block, der go('s-cl') GARANTIERT aufruft. So kann ein Fehler in irgendeinem
+  // Teilschritt (z.B. Firebase-Sync, Schwarzes Brett, ein Zusatzfeature wie Gelbe Säcke)
+  // nie mehr dazu führen, dass nach der PIN-Eingabe scheinbar "nichts passiert" – der
+  // Bildschirmwechsel zur Checkliste findet in jedem Fall statt.
+  try{
+    st.name=name;
     // Sofort Session als aktiv markieren (vor finishLogin)
     if(!activeLogins[name]) activeLogins[name]={};
     activeLogins[name].schicht = st.schicht||'';
@@ -2712,39 +2799,48 @@ function startCL(name){
     activeLogins[name].datum   = new Date().toISOString().slice(0,10);
     activeLogins[name].aktiv   = true;
     activeLogins[name].loginTs = new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
-    lsSave('activeLogins',activeLogins);
-    fbSave('activeLogins',activeLogins);
-  // clState IMMER auf den heutigen Tag gefiltert laden (loadClStateToday).
-  // Frühere Version lud hier den kompletten, ungefilterten Stand aus localStorage –
-  // dadurch erschienen Häkchen von gestern (oder von anderen Mitarbeitern) sofort
-  // wieder als "bereits erledigt", sobald sich jemand neu in eine Checkliste einloggte.
-  clState = loadClStateToday();
-  updateBadges();
-  // Show Schwarzes Brett if unconfirmed messages (nur zeitlich aktive)
-  const _todayBrett = new Date().toISOString().slice(0,10);
-  const unconfMsgs=schwarzesBrett.filter(function(m){
-    if(!m.aktiv) return false;
-    if(m.vonDatum && _todayBrett < m.vonDatum) return false;
-    if(m.bisDatum && _todayBrett > m.bisDatum) return false;
-    return !(m.bestaetigt && m.bestaetigt.includes(st.name));
-  });
-  if(unconfMsgs.length){
-    // Statt alert: direkt zum Brett navigieren
-    setTimeout(function(){ openBrett(); }, 400);
+    try{ lsSave('activeLogins',activeLogins); }catch(e){}
+    try{ fbSave('activeLogins',activeLogins); }catch(e){}
+    // clState IMMER auf den heutigen Tag gefiltert laden (loadClStateToday).
+    // Frühere Version lud hier den kompletten, ungefilterten Stand aus localStorage –
+    // dadurch erschienen Häkchen von gestern (oder von anderen Mitarbeitern) sofort
+    // wieder als "bereits erledigt", sobald sich jemand neu in eine Checkliste einloggte.
+    clState = loadClStateToday();
+    try{ updateBadges(); }catch(e){ console.warn('[startCL] updateBadges Fehler:', e); }
+    // Show Schwarzes Brett if unconfirmed messages (nur zeitlich aktive)
+    try{
+      const _todayBrett = new Date().toISOString().slice(0,10);
+      const unconfMsgs=(Array.isArray(schwarzesBrett)?schwarzesBrett:[]).filter(function(m){
+        if(!m.aktiv) return false;
+        if(m.vonDatum && _todayBrett < m.vonDatum) return false;
+        if(m.bisDatum && _todayBrett > m.bisDatum) return false;
+        return !(m.bestaetigt && m.bestaetigt.includes(st.name));
+      });
+      if(unconfMsgs.length){
+        // Statt alert: direkt zum Brett navigieren
+        setTimeout(function(){ try{ openBrett(); }catch(e){} }, 400);
+      }
+    }catch(e){ console.warn('[startCL] Schwarzes Brett Fehler:', e); }
+    // Restore any weekly task completions for today
+    try{
+      const todayKey=new Date().toISOString().slice(0,10);
+      Object.keys(weeklyCheckState).forEach(k=>{
+        if(k.includes(todayKey)) clState[k]=weeklyCheckState[k];
+      });
+    }catch(e){ console.warn('[startCL] weeklyCheckState Fehler:', e); }
+    try{ renderCL(); }catch(e){ console.error('[startCL] renderCL error:',e); }
+    try{
+      const openUB=ubergaben.find(u=>u.status==='open');
+      const ubBanner=document.getElementById('ub-open-banner'); if(ubBanner) ubBanner.style.display=openUB?'flex':'none';
+      const clHdr=document.getElementById('cl-hdr'); if(clHdr) clHdr.style.background=st.bereich==='bake'?'#b45309':'var(--black)';
+      const rollenLabels = {bake:'🥐 Bake-Off',kasse:'🛒 Kasse',regal:'📦 Regale',lager:'🏭 Lager',springer:'🔄 Springer',bake_off:'🥐 Bake-Off',frueh_verkauf:'🛒 Frühschicht Verkauf',mittel:'☀️ Mittelschicht',spaet_verkauf:'🛒 Spätschicht Verkauf',spaet_service:'🧹 Spätschicht Service',sl:'⭐ Schichtleiter'};
+      $text('cl-lbl', slbls[st.schicht]+' · '+(rollenLabels[st.rolle]||st.rolle||''));
+    }catch(e){ console.warn('[startCL] Header-Update Fehler:', e); }
+  } catch(e){
+    console.error('[startCL] Unerwarteter Fehler, Weiterleitung erfolgt trotzdem:', e);
+  } finally {
+    go('s-cl');
   }
-  // Restore any weekly task completions for today
-  const todayKey=new Date().toISOString().slice(0,10);
-  Object.keys(weeklyCheckState).forEach(k=>{
-    if(k.includes(todayKey)) clState[k]=weeklyCheckState[k];
-  });
-  try{ renderCL(); }catch(e){ console.error('renderCL error:',e); }
-  go('s-cl');
-  const openUB=ubergaben.find(u=>u.status==='open');
-  const ubBanner=document.getElementById('ub-open-banner'); if(ubBanner) ubBanner.style.display=openUB?'flex':'none';
-  const clHdr=document.getElementById('cl-hdr'); if(clHdr) clHdr.style.background=st.bereich==='bake'?'#b45309':'var(--black)';
-  const rollenLabels = {bake:'🥐 Bake-Off',kasse:'🛒 Kasse',regal:'📦 Regale',lager:'🏭 Lager',springer:'🔄 Springer',bake_off:'🥐 Bake-Off',frueh_verkauf:'🛒 Frühschicht Verkauf',mittel:'☀️ Mittelschicht',spaet_verkauf:'🛒 Spätschicht Verkauf',spaet_service:'🧹 Spätschicht Service',sl:'⭐ Schichtleiter'};
-  $text('cl-lbl', slbls[st.schicht]+' · '+(rollenLabels[st.rolle]||st.rolle||''));
-  go('s-cl');
 }
 
 function showStartTimeDialog(name) { finishLogin(); return; // Startzeit-Dialog deaktiviert
@@ -3111,16 +3207,25 @@ function renderCL(){
 
   // Gelbe Säcke: Checkliste darf nicht abgeschlossen werden, solange der angemeldete
   // Mitarbeiter die Erinnerung an einem aktiven Erinnerungstag noch nicht bestätigt hat.
-  const gsActiveTermin = gsGetActiveTermin();
-  const gsBlocked = !!(gsActiveTermin && st.name && !gsHasConfirmed(st.name, gsReminderDayStr(gsActiveTermin)));
+  // WICHTIG (fail-safe): Falls diese Prüfung aus irgendeinem Grund crasht (z.B. wegen
+  // kaputter Firebase-Daten), darf sie NIEMALS den "Fertig"-Button dauerhaft verstecken.
+  // Im Fehlerfall wird also NICHT blockiert (gsBlocked=false), damit ein Bug in diesem
+  // Zusatzfeature nie die eigentliche Kernfunktion (Checkliste abschließen) lahmlegt.
+  let gsBlocked = false;
+  try{
+    const gsActiveTermin = gsGetActiveTermin();
+    gsBlocked = !!(gsActiveTermin && st.name && !gsHasConfirmed(st.name, gsReminderDayStr(gsActiveTermin)));
+  } catch(e){ console.warn('[renderCL/gsBlocked] Fehler, Checkliste wird NICHT blockiert:', e); gsBlocked = false; }
   const canFinish = allDone && !gsBlocked;
   $style('cl-done', 'display', canFinish?'block':'none');
   $style('ub-btn', 'display', canFinish?'block':'none');
   if(allDone && gsBlocked){
-    const gsHint=document.createElement('div');
-    gsHint.style.cssText='background:#fff3cd;border:2px solid #f2c200;border-radius:12px;padding:12px 14px;margin-top:4px;font-size:12px;font-weight:700;color:#7a5b00;text-align:center;';
-    gsHint.textContent='⚠️ Bitte zuerst oben den Hinweis zu den Gelben Säcken bestätigen, um die Checkliste abzuschließen.';
-    body.appendChild(gsHint);
+    try{
+      const gsHint=document.createElement('div');
+      gsHint.style.cssText='background:#fff3cd;border:2px solid #f2c200;border-radius:12px;padding:12px 14px;margin-top:4px;font-size:12px;font-weight:700;color:#7a5b00;text-align:center;';
+      gsHint.textContent='⚠️ Bitte zuerst oben den Hinweis zu den Gelben Säcken bestätigen, um die Checkliste abzuschließen.';
+      body.appendChild(gsHint);
+    } catch(e){}
   }
 
   // Check for escalations
@@ -5668,8 +5773,18 @@ function checkPw(){
     return;
   }
   pwPinReset(); closeOv('ov-pw');
-  if(pwTarget==='sl'){ window._slLoggedIn=true; renderSL(); go('s-sl'); }
-  else { renderAdmin(); go('s-admin'); }
+  // WICHTIG (fail-safe): renderSL()/renderAdmin() werden in try/catch ausgeführt,
+  // damit ein Fehler dort (egal in welchem Feature) niemals das go() danach verhindert.
+  // Sonst würde der PIN-Dialog einfach zugehen, ohne dass der Bildschirm wechselt –
+  // wirkt dann so, als würde beim Anmelden "nichts passieren".
+  if(pwTarget==='sl'){
+    window._slLoggedIn=true;
+    try{ renderSL(); }catch(e){ console.error('[checkPw] renderSL Fehler:', e); }
+    go('s-sl');
+  } else {
+    try{ renderAdmin(); }catch(e){ console.error('[checkPw] renderAdmin Fehler:', e); }
+    go('s-admin');
+  }
 }
 function pwPinReset(){
   const disp=document.getElementById('pw-pin-display');
