@@ -1174,8 +1174,8 @@ function applyFirebaseData(key, val) {
           }
         }
         return; // Nicht weiter in localStorage speichern
-      case 'adminPw':            if(val&&typeof val==='string'&&val.length>=3){ ADMIN_PW=val; localStorage.setItem('prima_adminPw',val); } break;
-      case 'slPw':               if(val&&typeof val==='string'&&val.length>=3){ SL_PW=val; localStorage.setItem('prima_slPw',val); } break;
+      case 'adminPw':            /* PIN ist fest im Code (FIXED_ADMIN_PW) – Firebase-Werte werden ignoriert */ break;
+      case 'slPw':               /* PIN ist fest im Code (FIXED_SL_PW) – Firebase-Werte werden ignoriert */ break;
       case 'gsTermine':
         if(Array.isArray(val)) gsTermine = val;
         try{ gsRenderHomeBanner(); }catch(e){}
@@ -1319,10 +1319,16 @@ function deleteFotoFromStorage(url) {
 // ═══════════════════════════════════════════
 // DATA
 // ═══════════════════════════════════════════
-// PINs werden ausschließlich aus localStorage geladen – keine Hardcoded-Defaults.
-// Beim ersten Start zeigt checkFirstRun() einen Setup-Assistenten.
-let ADMIN_PW = localStorage.getItem('prima_adminPw') || '';
-let SL_PW    = localStorage.getItem('prima_slPw')    || '';
+// PINs sind FEST im Code hinterlegt (auf Wunsch, nachdem ein Mitarbeiter versehentlich
+// über die Ersteinrichtung einen eigenen PIN gesetzt und den Admin-Zugang blockiert hat).
+// Sie werden NICHT mehr aus localStorage oder Firebase übernommen, damit das nicht
+// nochmal passieren kann. Änderung nur noch hier im Code möglich.
+const FIXED_ADMIN_PW = '0662';
+const FIXED_SL_PW    = '2511';
+let ADMIN_PW = FIXED_ADMIN_PW;
+let SL_PW    = FIXED_SL_PW;
+try{ localStorage.setItem('prima_adminPw', FIXED_ADMIN_PW); }catch(e){}
+try{ localStorage.setItem('prima_slPw',    FIXED_SL_PW);    }catch(e){}
 let editingTaskId = null;
 
 // In-memory data (wird später durch Firebase ersetzt)
@@ -2200,113 +2206,33 @@ setInterval(function(){
 
 
 // ═══════════════════════════════════════════
-// FIRST-RUN SETUP
-// Wird beim Start aufgerufen wenn noch kein Admin-PIN gesetzt ist.
-// Zeigt einen Einrichtungs-Assistenten.
-// ═══════════════════════════════════════════
-function checkFirstRun() {
-  // WICHTIG: Diese App läuft auch auf den privaten Handys der Mitarbeiter (jeweils
-  // eigener, leerer localStorage). Die PINs sind aber bereits zentral in Firebase
-  // gespeichert. Früher wurde hier nur der LOKALE Stand (ADMIN_PW/SL_PW) geprüft –
-  // das führte zu einem Race Condition: Firebase hatte die PINs oft noch nicht
-  // geladen (asynchron!), also dachte die App fälschlich "nicht eingerichtet" und
-  // zeigte Mitarbeitern den Admin-Einrichtungsdialog. Jetzt wird VOR jeder Anzeige
-  // aktiv und direkt bei Firebase nachgefragt, ob die PINs dort schon existieren.
-  if(ADMIN_PW && SL_PW) return; // Bereits lokal bekannt – nichts zu tun
+// FIRST-RUN SETUP — ENTFERNT
+// Die PINs sind jetzt fest im Code hinterlegt (FIXED_ADMIN_PW/FIXED_SL_PW, siehe oben).
+// Es gibt keinen Ersteinrichtungs-Dialog mehr, weil die App auch auf den privaten
+// Handys der Mitarbeiter installiert wird und ein Mitarbeiter dort sonst versehentlich
+// einen eigenen PIN setzen und den Admin-Zugang blockieren könnte (genau das ist
+// passiert). checkFirstRun() bleibt als leere Funktion stehen, damit der bestehende
+// Aufruf weiter unten nicht bricht.
+function checkFirstRun() { /* absichtlich leer – keine Ersteinrichtung mehr */ }
 
-  // Bis zu ~6 Sekunden auf eine Firebase-Verbindung warten (Handy kann langsames
-  // Netz haben), dann live bei Firebase nachfragen, BEVOR der Dialog gezeigt wird.
+// Schreibt die festen PINs aktiv nach Firebase, sobald die Verbindung steht.
+// Das überschreibt einen eventuell versehentlich von einem Mitarbeiter gesetzten
+// PIN wieder mit den festen Werten – auf allen Geräten, die synchronisieren.
+function pushFixedPinsToFirebase(){
   let waited = 0;
-  const waitForFb = function(){
+  const tryPush = function(){
     if(fbReady && db){
-      Promise.all([
-        db.collection('prima').doc('adminPw').get().catch(function(){ return null; }),
-        db.collection('prima').doc('slPw').get().catch(function(){ return null; })
-      ]).then(function(docs){
-        try{
-          const adminDoc = docs[0], slDoc = docs[1];
-          if(adminDoc && adminDoc.exists){
-            try{ const v = JSON.parse(adminDoc.data().data); if(v&&v.length>=3){ ADMIN_PW=v; localStorage.setItem('prima_adminPw',v); } }catch(e){}
-          }
-          if(slDoc && slDoc.exists){
-            try{ const v = JSON.parse(slDoc.data().data); if(v&&v.length>=3){ SL_PW=v; localStorage.setItem('prima_slPw',v); } }catch(e){}
-          }
-        }catch(e){}
-        // Nur noch anzeigen, wenn WIRKLICH bei Firebase (und lokal) nichts existiert –
-        // also ein echtes Erststart-Szenario, kein Mitarbeiter-Handy mit bereits
-        // eingerichtetem Firebase-Projekt.
-        if(!ADMIN_PW || !SL_PW){ showFirstRunSetup(); }
-      }).catch(function(){
-        // Firebase-Anfrage fehlgeschlagen (z.B. Berechtigungsfehler) – im Zweifel
-        // NICHT den Dialog zeigen, um Mitarbeiter nicht fälschlich als Admin zu behandeln.
-        console.warn('[checkFirstRun] Firebase-Abfrage fehlgeschlagen, Setup-Dialog wird sicherheitshalber NICHT gezeigt.');
-      });
+      try{ fbSave('adminPw', FIXED_ADMIN_PW); }catch(e){}
+      try{ fbSave('slPw',    FIXED_SL_PW);    }catch(e){}
       return;
     }
-    waited += 200;
-    if(waited >= 6000){
-      // Kein Firebase nach 6s erreichbar (z.B. komplett offline UND noch nie synchronisiert).
-      // Nur dann den alten, rein lokalen Check als letzten Fallback verwenden.
-      if(!ADMIN_PW || !SL_PW){
-        console.warn('[checkFirstRun] Kein Firebase erreichbar, verwende lokalen Fallback-Check.');
-        showFirstRunSetup();
-      }
-      return;
-    }
-    setTimeout(waitForFb, 200);
+    waited += 300;
+    if(waited >= 15000) return; // kein Firebase erreichbar, PIN funktioniert trotzdem lokal
+    setTimeout(tryPush, 300);
   };
-  waitForFb();
+  tryPush();
 }
-
-function showFirstRunSetup() {
-  const ov = document.createElement('div');
-  ov.id = 'ov-firstrun';
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;';
-
-  const box = document.createElement('div');
-  box.style.cssText = 'background:#fff;border-radius:18px;padding:24px 20px;width:100%;max-width:380px;';
-  box.innerHTML =
-    '<div style="font-size:22px;font-weight:900;margin-bottom:4px;">🔐 Ersteinrichtung</div>'+
-    '<div style="font-size:13px;color:#666;margin-bottom:20px;">Bitte lege einmalig die PINs fest. Diese werden sicher in Firebase gespeichert und stehen nie mehr im Code.</div>'+
-    '<div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px;">Admin-PIN (du als Inhaber)</div>'+
-    '<input id="setup-admin-pin" type="password" inputmode="numeric" maxlength="20" placeholder="Mind. 4 Zeichen" style="width:100%;border:2px solid #e0e0e0;border-radius:10px;padding:12px;font-size:16px;font-family:inherit;margin-bottom:12px;outline:none;box-sizing:border-box;">'+
-    '<div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px;">Schichtleiter-PIN</div>'+
-    '<input id="setup-sl-pin" type="password" inputmode="numeric" maxlength="20" placeholder="Mind. 4 Zeichen" style="width:100%;border:2px solid #e0e0e0;border-radius:10px;padding:12px;font-size:16px;font-family:inherit;margin-bottom:6px;outline:none;box-sizing:border-box;">'+
-    '<div style="font-size:11px;color:#888;margin-bottom:16px;">Tipp: Verwende unterschiedliche PINs.</div>'+
-    '<div id="setup-err" style="display:none;background:#fee2e2;border-radius:8px;padding:8px 12px;font-size:12px;color:#dc2626;font-weight:700;margin-bottom:10px;"></div>'+
-    '<button onclick="saveFirstRunSetup()" style="width:100%;background:#0f0f0f;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;">✅ PINs speichern & starten</button>';
-
-  ov.appendChild(box);
-  document.body.appendChild(ov);
-  setTimeout(function(){ const el=document.getElementById('setup-admin-pin'); if(el) el.focus(); }, 100);
-}
-
-function saveFirstRunSetup() {
-  const adminVal = (document.getElementById('setup-admin-pin')||{}).value || '';
-  const slVal    = (document.getElementById('setup-sl-pin')||{}).value || '';
-  const errEl    = document.getElementById('setup-err');
-
-  if(adminVal.length < 4) {
-    if(errEl){ errEl.style.display='block'; errEl.textContent='Admin-PIN muss mindestens 4 Zeichen haben.'; } return;
-  }
-  if(slVal.length < 4) {
-    if(errEl){ errEl.style.display='block'; errEl.textContent='Schichtleiter-PIN muss mindestens 4 Zeichen haben.'; } return;
-  }
-  if(adminVal === slVal) {
-    if(errEl){ errEl.style.display='block'; errEl.textContent='Admin-PIN und SL-PIN müssen unterschiedlich sein.'; } return;
-  }
-
-  ADMIN_PW = adminVal;
-  SL_PW    = slVal;
-  localStorage.setItem('prima_adminPw', adminVal);
-  localStorage.setItem('prima_slPw',    slVal);
-  try { fbSave('adminPw', adminVal); } catch(e){}
-  try { fbSave('slPw',    slVal); } catch(e){}
-
-  const ov = document.getElementById('ov-firstrun');
-  if(ov) document.body.removeChild(ov);
-  alert('✅ PINs gespeichert. Die App ist jetzt einsatzbereit.');
-}
+pushFixedPinsToFirebase();
 
 // ═══════════════════════════════════════════
 // TAGES-RESET UM 02:00 UHR
@@ -5740,16 +5666,18 @@ function askAdmin(){
 }
 
 function resetAndEnter() {
-  if(!confirm('PIN zurücksetzen?\n\nDer alte PIN wird gelöscht. Du kannst danach einen neuen setzen.\nFirebase-Daten (Mitarbeiter, Schichten, etc.) bleiben erhalten.')) return;
-  // PINs aus localStorage löschen
-  localStorage.removeItem('prima_adminPw');
-  localStorage.removeItem('prima_slPw');
-  ADMIN_PW = '';
-  SL_PW = '';
-  // Overlay schließen, Setup-Wizard öffnen
+  // PINs sind jetzt fest im Code (FIXED_ADMIN_PW/FIXED_SL_PW) – es gibt keinen
+  // Setup-Wizard mehr. "Zurücksetzen" bedeutet daher: zurück auf die festen PINs,
+  // falls sich lokal oder in Firebase mal wieder ein falscher Wert eingeschlichen hat.
+  if(!confirm('PIN auf die festen Werte zurücksetzen?')) return;
+  ADMIN_PW = FIXED_ADMIN_PW;
+  SL_PW    = FIXED_SL_PW;
+  try{ localStorage.setItem('prima_adminPw', FIXED_ADMIN_PW); }catch(e){}
+  try{ localStorage.setItem('prima_slPw',    FIXED_SL_PW);    }catch(e){}
+  try{ pushFixedPinsToFirebase(); }catch(e){}
   closeOv('ov-pw');
   pwPinReset();
-  showFirstRunSetup();
+  alert('✅ PIN wurde auf den festen Wert zurückgesetzt.');
 }
 
 function checkPw(){
@@ -8075,15 +8003,15 @@ function updateWeeklyTask() {
 }
 
 // ═══════════════════════════════════════════
-// PASSWORD CHANGE
+// PASSWORD CHANGE — DEAKTIVIERT
+// PINs sind jetzt fest im Code (FIXED_ADMIN_PW/FIXED_SL_PW). Diese Funktionen ändern
+// nichts mehr, damit nicht wieder aus Versehen (z.B. von einem Mitarbeiter) ein neuer
+// PIN gesetzt und der Admin-Zugang blockiert werden kann. Um den PIN wirklich zu
+// ändern, muss FIXED_ADMIN_PW / FIXED_SL_PW oben im Code geändert werden.
 // ═══════════════════════════════════════════
 function changeAdminPw(){
-  const val=document.getElementById('new-admin-pw').value.trim();
-  if(!val){alert('Bitte neues Passwort eingeben.');return;}
-  if(val.length<3){alert('Passwort muss mindestens 3 Zeichen haben.');return;}
-  ADMIN_PW=val; lsSave('adminPw',val); fbSave('adminPw',val);
+  alert('Der Admin-PIN ist fest im Code hinterlegt und kann hier nicht mehr geändert werden.');
   $set('new-admin-pw', 'value', '');
-  alert('✅ Admin-PIN gespeichert.');
 }
 function saveRegalTarget() {
   const val = parseInt(document.getElementById('regal-target-inp').value);
@@ -8096,12 +8024,8 @@ function saveRegalTarget() {
 }
 
 function changeSLPw(){
-  const val=document.getElementById('new-sl-pw').value.trim();
-  if(!val){alert('Bitte neues Passwort eingeben.');return;}
-  if(val.length<3){alert('Passwort muss mindestens 3 Zeichen haben.');return;}
-  SL_PW=val; lsSave('slPw',val); fbSave('slPw',val);
+  alert('Der Schichtleiter-PIN ist fest im Code hinterlegt und kann hier nicht mehr geändert werden.');
   $set('new-sl-pw', 'value', '');
-  alert('✅ Schichtleiter-PIN gespeichert.');
 }
 
 // ═══════════════════════════════════════════
