@@ -1922,9 +1922,20 @@ const GS_DEFAULT_TERMINE = [
 ].map(function(d,i){ return {id:'gs'+i, datum:d}; }); // datum = Abholtermin (YYYY-MM-DD)
 
 let gsTermine = lsLoad('gsTermine', GS_DEFAULT_TERMINE);
+if(!Array.isArray(gsTermine) || !gsTermine.length) gsTermine = GS_DEFAULT_TERMINE;
 let gsSettings = lsLoad('gsSettings', {enabled:true, testMode:false});
+if(!gsSettings || typeof gsSettings!=='object') gsSettings = {enabled:true, testMode:false};
 let gsConfirmations = lsLoad('gsConfirmations', []); // [{id,name,reminderDatum,pickupDatum,zeit,ts,schicht,checkliste}]
+if(!Array.isArray(gsConfirmations)) gsConfirmations = [];
 let gsEditId = null;
+// Stellt sicher, dass die drei Gelbe-Säcke-Variablen immer den richtigen Typ haben,
+// egal was zuvor aus localStorage/Firebase hineingeschrieben wurde (defensiv gegen
+// kaputte/alte Datensätze – verhindert Abstürze beim Rendern von Admin/SL/Checkliste).
+function gsNormalize(){
+  if(!Array.isArray(gsTermine)) gsTermine = GS_DEFAULT_TERMINE;
+  if(!gsSettings || typeof gsSettings!=='object') gsSettings = {enabled:true, testMode:false};
+  if(!Array.isArray(gsConfirmations)) gsConfirmations = [];
+}
 
 // Heutiges Datum (Kalendertag) in Europe/Berlin, unabhängig von Geräte-Zeitzone
 function gsBerlinDateStr(d){
@@ -1951,20 +1962,22 @@ function gsReminderDayStr(termin){ return termin ? gsAddDaysStr(termin.datum,-1)
 // Liefert den aktuell aktiven Termin (dessen Erinnerungstag heute ist) oder null
 function gsGetActiveTermin(){
   if(!gsSettings || (!gsSettings.enabled && !gsSettings.testMode)) return null;
+  if(!Array.isArray(gsTermine) || !gsTermine.length) return null;
   const today = gsBerlinDateStr();
   if(gsSettings.testMode){
     // Testmodus: zeigt den nächsten bevorstehenden (oder aktuellen) Termin sofort an
-    const upcoming = gsTermine.filter(function(t){ return t.datum >= today; }).sort(function(a,b){ return a.datum<b.datum?-1:1; });
-    return upcoming[0] || (gsTermine.length ? gsTermine.slice().sort(function(a,b){return a.datum<b.datum?-1:1;})[0] : null);
+    const upcoming = gsTermine.filter(function(t){ return t && t.datum && t.datum >= today; }).sort(function(a,b){ return a.datum<b.datum?-1:1; });
+    return upcoming[0] || gsTermine.slice().sort(function(a,b){return a.datum<b.datum?-1:1;})[0] || null;
   }
-  return gsTermine.find(function(t){ return gsReminderDayStr(t)===today; }) || null;
+  return gsTermine.find(function(t){ return t && t.datum && gsReminderDayStr(t)===today; }) || null;
 }
 function gsHasConfirmed(name, reminderDay){
-  if(!name || !reminderDay) return false;
-  return gsConfirmations.some(function(c){ return c.name===name && c.reminderDatum===reminderDay; });
+  if(!name || !reminderDay || !Array.isArray(gsConfirmations)) return false;
+  return gsConfirmations.some(function(c){ return c && c.name===name && c.reminderDatum===reminderDay; });
 }
 function gsConfirmationsForDay(reminderDay){
-  return gsConfirmations.filter(function(c){ return c.reminderDatum===reminderDay; });
+  if(!Array.isArray(gsConfirmations)) return [];
+  return gsConfirmations.filter(function(c){ return c && c.reminderDatum===reminderDay; });
 }
 function gsConfirm(){
   const termin = gsGetActiveTermin();
@@ -2028,6 +2041,7 @@ function gsBuildBanner(){
 }
 // Rendert das Banner auf der Startseite (auch ohne Login sichtbar)
 function gsRenderHomeBanner(){
+  gsNormalize();
   const box=document.getElementById('gs-home-banner');
   if(!box) return;
   box.innerHTML='';
@@ -2984,6 +2998,7 @@ function finishLogin() {
 }
 
 function renderCL(){
+  gsNormalize();
   const myTasks=getMyTasks();
   // Fortschritt in activeLogins speichern
   if(st.name && activeLogins[st.name]){
@@ -2997,10 +3012,10 @@ function renderCL(){
   const body=document.getElementById('cl-body');if(!body)return;body.innerHTML='';
 
   // ── GELBE SÄCKE ERINNERUNG (höchste Priorität, ganz oben) ──
-  (function(){
+  try{
     const gsBanner=gsBuildBanner();
     if(gsBanner) body.appendChild(gsBanner);
-  })();
+  }catch(e){}
 
   // ── BESTELLUNGEN BANNER (ganz oben) ──
   (function(){
@@ -4821,15 +4836,16 @@ function buildChecklistUebersichtPanel(){
 }
 
 function renderSL(){
+  gsNormalize();
   const body=document.getElementById('sl-tab-dash');
   if(!body) return;
   body.innerHTML='';
 
   // ── GELBE SÄCKE ERINNERUNG (deutlich sichtbar in der Schichtleiterkonsole) ──
-  (function(){
+  try{
     const gsBanner=gsBuildBanner();
     if(gsBanner) body.appendChild(gsBanner);
-  })();
+  }catch(e){}
   try{ gsRenderSLCard(body); }catch(e){}
 
   // ── BESTELLUNGEN AUFGABE (ganz oben im SL-Dashboard) ──
@@ -5666,6 +5682,7 @@ function pwPinReset(){
 }
 
 function renderAdmin(){
+  gsNormalize();
   const body=document.getElementById('admin-body');if(!body)return;body.innerHTML='';
 
   function mkAdd(txt,fn){const b=document.createElement('button');b.className='a-add';b.textContent=txt;b.onclick=fn;body.appendChild(b);}
