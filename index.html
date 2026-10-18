@@ -406,7 +406,7 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:var(
 <!-- ══ INFO ══ -->
 <div class="screen" id="s-info">
   <div class="hdr"><button class="back" onclick="go('s-home')">&#8249; Zurück</button><div class="hdr-sub">Informationen</div></div>
-  <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:12px;padding:14px;">
+  <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr auto;gap:12px;padding:14px;">
 
     <!-- Kachel 1: Anleitungen -->
     <div onclick="openInfoUnterkategorie('anleitungen')" style="background:linear-gradient(135deg,#1e3a5f,#0f3460);border-radius:18px;padding:20px 16px;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;position:relative;min-height:140px;">
@@ -440,8 +440,25 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:var(
       <div style="position:absolute;right:12px;bottom:12px;font-size:16px;color:rgba(255,255,255,.2);">&#8250;</div>
     </div>
 
+    <!-- Kachel 5: Zigaretten-Inventur (konfigurierbar in Admin) -->
+    <div id="zig-tile" onclick="openZigInv()" style="grid-column:1 / -1;background:linear-gradient(135deg,#9a3412,#7c2d12);border-radius:18px;padding:18px 16px;cursor:pointer;display:flex;flex-direction:row;align-items:center;gap:14px;position:relative;min-height:84px;">
+      <div style="font-size:36px;flex-shrink:0;">🚬</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:15px;font-weight:900;color:#fff;line-height:1.2;">Zigaretten-Inventur</div>
+        <div id="zig-tile-sub" style="font-size:11px;color:rgba(255,255,255,.75);margin-top:3px;">Tägliche Zählung</div>
+      </div>
+      <div style="font-size:20px;color:rgba(255,255,255,.35);padding-right:2px;">&#8250;</div>
+    </div>
+
   </div>
   <div class="bottom-bar"><img src="prima_logo.png" style="height:16px;opacity:0.35;vertical-align:middle;margin-right:6px;" alt="">Reutlingen GmbH</div>
+</div>
+
+<!-- ══ ZIGARETTEN-INVENTUR ══ -->
+<div class="screen" id="s-ziginv" style="background:#faf7f5;">
+  <div class="hdr" style="background:#7c2d12;"><button class="back" onclick="zigBack()">&#8249; Zurück</button><div class="hdr-sub" style="color:rgba(255,255,255,.8);">🚬 Zigaretten-Inventur</div></div>
+  <div id="zig-body" style="flex:1;padding:12px 14px 24px;"></div>
+  <div id="zig-footer" style="position:sticky;bottom:0;background:#fff;border-top:1px solid #eee;padding:10px 14px 12px;box-shadow:0 -4px 14px rgba(0,0,0,.06);z-index:5;"></div>
 </div>
 
 <!-- ══ INFO UNTERKATEGORIEN ══ -->
@@ -694,16 +711,17 @@ body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;background:var(
     <div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 7px rgba(0,0,0,.07);margin-bottom:12px;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
         <div><label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Datum</label>
-          <input type="date" id="uz-datum" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit;outline:none;"></div>
+          <input type="date" id="uz-datum" onchange="_uzEditDate=null" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit;outline:none;"></div>
         <div><label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Umsatz (€)</label>
           <input type="number" id="uz-betrag" placeholder="0" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit;outline:none;"></div>
       </div>
       <div style="margin-bottom:10px;"><label style="font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:4px;">Anzahl Kunden</label>
         <input type="number" id="uz-kunden" placeholder="0" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit;outline:none;"></div>
-      <button onclick="saveUmsatz()" style="width:100%;background:#0f3460;color:#fff;border:none;border-radius:9px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">💾 Speichern</button>
+      <button id="uz-save-btn" onclick="saveUmsatz()" style="width:100%;background:#0f3460;color:#fff;border:none;border-radius:9px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">💾 Speichern</button>
     </div>
     <div id="uz-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;"></div>
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px;">📅 Letzte Einträge</div>
+    <div id="uz-verlauf"></div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin:16px 0 8px;">📅 Letzte 14 Einträge</div>
     <div id="uz-list"></div>
   </div>
   <div id="sl-tab-dp" style="display:none;flex:1;overflow-y:auto;">
@@ -890,6 +908,9 @@ function initFirebase() {
     return;
   }
   const statusEl=document.getElementById('fb-status');
+  if(window._fbInitPending || fbReady) return; // nicht doppelt verbinden
+  window._fbInitPending=true;
+  setTimeout(function(){ window._fbInitPending=false; }, 15000);
   if(statusEl)statusEl.innerHTML='<span style="color:#888;">&#9679; Verbinde...</span>';
   try {
     if(typeof firebase==='undefined') throw new Error('SDK nicht geladen');
@@ -899,6 +920,8 @@ function initFirebase() {
     // enablePersistence deaktiviert – kann Multi-Tab Sync blockieren
     db.collection('prima').doc('mitNachrichten').get()
       .then(function(doc){
+        window._fbInitPending=false;
+        if(fbReady) return; // bereits verbunden – keine doppelten Listener
         fbReady=true;
         initFbStorage(); // Firebase Storage initialisieren
         if(statusEl)statusEl.innerHTML='<span style="color:#16a34a;">&#9679; Firebase &#10003;</span>';
@@ -923,7 +946,7 @@ function initFirebase() {
           } catch(e){}
         });
       })
-      .catch(function(){ if(statusEl)statusEl.innerHTML='<span style="color:#f59e0b;">&#9679; Offline</span>'; });
+      .catch(function(){ window._fbInitPending=false; if(statusEl)statusEl.innerHTML='<span style="color:#f59e0b;">&#9679; Offline</span>'; });
   } catch(e) {
     if(statusEl)statusEl.innerHTML='<span style="color:#f59e0b;">&#9679; '+e.message+'</span>';
   }
@@ -932,8 +955,6 @@ function initFirebase() {
 function forceSyncToFirebase() {
   if(!fbReady || !db) return;
   const dataMap = {
-    'DP': {mitarbeiter:DP.mitarbeiter, weeks:DP.weeks, budget:DP.budget, activeWeek:DP.activeWeek},
-    'names': names,
     'DP': {mitarbeiter:DP.mitarbeiter, weeks:DP.weeks, budget:DP.budget, activeWeek:DP.activeWeek},
     'names': names,
     'activeLogins': activeLogins,
@@ -1017,7 +1038,9 @@ const FB_KEYS = [
   'rollenAufgaben',
   'gsTermine',
   'gsSettings',
-  'gsConfirmations'
+  'gsConfirmations',
+  'zigInvConfig',
+  'zigInvHistory'
 ];
 
 function fbSave(key, val) {
@@ -1050,6 +1073,12 @@ function applyFirebaseData(key, val) {
         break;
       }
       case 'tempHistory':        tempHistory = val; break;
+      case 'zigInvConfig':
+        if(val && typeof val === 'object' && Array.isArray(val.artikel)) { zigInvConfig = zigCfgDefaults(val); try{ zigUpdateInfoTile(); }catch(e){} }
+        break;
+      case 'zigInvHistory':
+        if(Array.isArray(val)) { zigInvHistory = val; try{ zigUpdateInfoTile(); }catch(e){} }
+        break;
       case 'clHistory':
         if(Array.isArray(val)) clHistory = val;
         if(window._slLoggedIn){ try{ renderChecklistWochenuebersicht(); }catch(e){} }
@@ -1079,7 +1108,6 @@ function applyFirebaseData(key, val) {
         break;
       case 'regalFotos':         regalFotos = val; break;
       case 'regalNachbesserungen': if(val) regalNachbesserungen=Array.isArray(val)?val:Object.values(val); break;
-      case 'ubAblehnungsGruende': if(val&&val.length) ubAblehnungsGruende=val; break;
       case 'ubAblehnungsGruende': if(val&&val.length) ubAblehnungsGruende=val; break;
       case 'regalNachbesserungen': if(val) regalNachbesserungen = val; break;
       case 'regalTarget':        regalTarget = val; break;
@@ -1210,7 +1238,7 @@ function syncFromFirebase() {
   const MASTER_KEYS = ['maProfiles','names','persAufgaben','aufgabenProfile',
     'rollenAufgaben','weeklyTasks','regalGruppen','regalBewertungen',
     'slTasks','inventurData','inventurHistory','slNachrichten',
-    'adminPw','slPw','umsatzData','zuschlagsplaene'];
+    'adminPw','slPw','umsatzData','zuschlagsplaene','zigInvConfig'];
 
   FB_KEYS.forEach(function(key) {
     try {
@@ -2313,8 +2341,7 @@ function checkDailyReset(){
 checkDailyReset();
 // Dann alle 60 Sekunden prüfen (für laufende Sessions die 02:00 überschreiten)
 setInterval(checkDailyReset, 60000);
-window.addEventListener('online', function(){ if(!fbReady) initFirebase(); });
-window.addEventListener('online', function() { if(!fbReady) initFirebase(); });
+window.addEventListener('online', function(){ if(!fbReady && !window._fbInitPending) initFirebase(); });
 
 // Ersteinrichtung: nach DOM-Load prüfen ob PINs fehlen
 if(document.readyState === 'loading') {
@@ -2333,6 +2360,7 @@ function go(id){
   if(target) target.classList.add('active');
   else console.warn('go(): Element nicht gefunden:', id);
   window.scrollTo(0,0);
+  if(id==='s-info'){ try{ zigUpdateInfoTile(); }catch(e){} }
   // Kein sessionStorage - immer Home beim Start
 }
 function confirmGoHome(){
@@ -3254,6 +3282,7 @@ function makeTaskRow(task){
       else if(task.special==='temp'){sb.textContent='🌡️ Temperatur prüfen';sb.style.background='#0369a1';sb.onclick=(e)=>{e.stopPropagation();openTempControl();};}
       else if(task.special==='slush'){sb.textContent='🧊 Reinigung bestätigen';sb.style.background='#7c3aed';sb.onclick=(e)=>{e.stopPropagation();openSlushScreen();};}
       else if(task.special==='inventur'){sb.textContent='📋 Inventur starten';sb.style.background='#0f766e';sb.onclick=(e)=>{e.stopPropagation();openInventurInfo();};}
+      else if(task.special==='ziginv'){sb.textContent='🚬 Zigaretten zählen';sb.style.background='#c2410c';sb.onclick=(e)=>{e.stopPropagation();openZigInv(task.id);};}
       else if(task.special==='regal_nachbesserung'){
         sb.textContent='📸 Neues Foto aufnehmen';
         sb.style.background='#dc2626';
@@ -3282,6 +3311,13 @@ function makeTaskRow(task){
       db.onclick=(e)=>{e.stopPropagation();markDone(task.id);};acts.appendChild(db);
       const nb=document.createElement('button');nb.className='cl-btn btn-nd';nb.textContent='❌ Nicht erledigt';
       nb.onclick=(e)=>{e.stopPropagation();showReasons(task.id);};acts.appendChild(nb);
+      // Tabak-/Zigaretten-Aufgaben: direkt zur Zigaretten-Inventur (wird nach dem Speichern automatisch abgehakt)
+      try {
+        if(typeof zigIsTabakTask==='function' && zigIsTabakTask(task)) {
+          const zb=document.createElement('button');zb.className='cl-btn btn-special';zb.style.background='#c2410c';
+          zb.textContent='🚬 Zählen';zb.onclick=(e)=>{e.stopPropagation();openZigInv(task.id);};acts.insertBefore(zb, acts.firstChild);
+        }
+      } catch(e) {}
     }
     div.appendChild(acts);
   }
@@ -5349,6 +5385,9 @@ function renderSL(){
     todayDiv.appendChild(invCard);
   }
 
+  // Zigaretten-Inventur Status
+  try { zigBuildSLCard(todayDiv); } catch(e) { console.warn('[Zig-SL]', e); }
+
   // Slush status
   todayDiv.appendChild(mkSec('🧊 Slushmaschine'));
   const slCard2=document.createElement('div');slCard2.className='sl-card';
@@ -5729,6 +5768,8 @@ function renderAdmin(){
   const body=document.getElementById('admin-body');if(!body)return;body.innerHTML='';
 
   function mkAdd(txt,fn){const b=document.createElement('button');b.className='a-add';b.textContent=txt;b.onclick=fn;body.appendChild(b);}
+  // FIX: globales mkSec() erzeugt nur das Element – hier wird es auch eingefügt (vorher fehlten alle Admin-Überschriften)
+  function mkSec(txt){const d=document.createElement('div');d.className='a-sec';d.textContent=txt;body.appendChild(d);return d;}
 
   // Mitarbeiter
   mkSec('👥 Mitarbeiter');
@@ -5989,7 +6030,7 @@ function renderAdmin(){
 
   // Backen-Schnellmodus Freischaltung
   const bakeCard = document.createElement('div'); bakeCard.className = 'a-card';
-  body.appendChild(mkSec('&#9889; Backen-Schnellmodus'));
+  body.appendChild(mkSec('⚡ Backen-Schnellmodus'));
   body.appendChild(bakeCard);
   names.forEach(function(n) {
     const row = document.createElement('div'); row.className = 'a-row';
@@ -5998,7 +6039,7 @@ function renderAdmin(){
     lbl.innerHTML = '<div class="a-label">' + n + '</div><div class="a-sub">' + (freigabe ? '&#9889; Schnellmodus aktiv' : 'Standard (alle Schritte)') + '</div>';
     const btn = document.createElement('button');
     btn.style.cssText = 'background:' + (freigabe ? '#fef3c7' : '#f0fdf4') + ';border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:' + (freigabe ? '#92400e' : '#15803d') + ';';
-    btn.textContent = freigabe ? 'Freigabe entziehen' : '&#9889; Schnellmodus freigeben';
+    btn.textContent = freigabe ? 'Freigabe entziehen' : '⚡ Schnellmodus freigeben';
     (function(name) {
       btn.addEventListener('click', function() {
         backenFreigaben[name] = !backenFreigaben[name];
@@ -6142,6 +6183,9 @@ function renderAdmin(){
   });
   body.appendChild(kompCard);
 
+  // Zigaretten-Inventur
+  try { renderAdminZigInv(body, mkSec); } catch(e) { console.warn('[Zig-Admin]', e); }
+
   // Historie
   // Export
   mkSec('📤 Daten exportieren');
@@ -6166,7 +6210,7 @@ function renderAdmin(){
 
   const cb=document.createElement('button');cb.className='a-add';cb.style.cssText='background:#dc2626;margin-top:6px;';
   cb.textContent='🗑️ Historie löschen';
-  cb.onclick=()=>{if(confirm('Gesamte Historie löschen?')){history=[];renderAdmin();}};body.appendChild(cb);
+  cb.onclick=()=>{if(confirm('Gesamte Schicht-Historie wirklich löschen?\n\nDas kann nicht rückgängig gemacht werden.')){history=[];lsSave('history',history);renderAdmin();}};body.appendChild(cb);
 }
 
 // ═══════════════════════════════════════════
@@ -7053,6 +7097,20 @@ function saveUmsatz() {
   const betrag = parseFloat(document.getElementById('uz-betrag').value) || 0;
   const kunden = parseInt(document.getElementById('uz-kunden').value) || 0;
   if(!datum || betrag<=0) { alert('Bitte Datum und Umsatz eingeben.'); return; }
+  // Schutz: vorhandenen Tag nicht versehentlich überschreiben
+  const _uzExisting = umsatzData.find(u => u.date === datum);
+  if(_uzExisting && _uzEditDate !== datum) {
+    if(!confirm('Für den '+datum.split('-').reverse().join('.')+' gibt es schon einen Eintrag ('+Number(_uzExisting.betrag).toLocaleString('de-DE')+' €, '+_uzExisting.kunden+' Kunden).\n\nÜberschreiben?')) return;
+  }
+  // Tippfehler-Schutz: stark abweichende Werte nachfragen (z. B. eine Null zu viel)
+  const _uzRef = umsatzData.filter(u => u.date !== datum).slice(0,30).map(u => Number(u.betrag)||0).filter(v => v>0).sort((a,b)=>a-b);
+  if(_uzRef.length >= 5) {
+    const _med = _uzRef[Math.floor(_uzRef.length/2)];
+    if(betrag > _med*2.5 || betrag < _med*0.3) {
+      if(!confirm('Ungewöhnlicher Wert: '+betrag.toLocaleString('de-DE')+' €\n(üblich sind ca. '+Math.round(_med).toLocaleString('de-DE')+' €)\n\nTrotzdem speichern?')) return;
+    }
+  }
+  _uzEditDate = null;
   // Remove existing entry for same date
   umsatzData = umsatzData.filter(u => u.date !== datum);
   umsatzData.push({date: datum, betrag, kunden});
@@ -7062,7 +7120,7 @@ function saveUmsatz() {
   $set('uz-betrag', 'value', '');
   $set('uz-kunden', 'value', '');
   // Speichern-Button zurücksetzen
-  const saveBtnReset=document.querySelector('#sl-tab-umsatz button');
+  const saveBtnReset=document.getElementById('uz-save-btn');
   if(saveBtnReset){saveBtnReset.style.background='#0f3460';saveBtnReset.textContent='💾 Speichern';}
   renderUmsatz();
 }
@@ -7087,7 +7145,8 @@ function renderUmsatz() {
   const avgK = arr => arr.length ? Math.round(arr.reduce((s,u)=>s+u.kunden,0)/arr.length) : 0;
   const bon = arr => {
     const validArr = arr.filter(u=>u.kunden>0);
-    return validArr.length ? Math.round(validArr.reduce((s,u)=>s+(u.betrag/u.kunden),0)/validArr.length*100)/100 : 0;
+    const k = validArr.reduce((s,u)=>s+u.kunden,0);
+    return k ? Math.round(validArr.reduce((s,u)=>s+u.betrag,0)/k*100)/100 : 0;
   };
 
   const stats = document.getElementById('uz-stats');
@@ -7128,19 +7187,7 @@ function renderUmsatz() {
         editBtn.style.cssText = 'background:#e8f0fe;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;color:#1a56db;cursor:pointer;font-family:inherit;flex-shrink:0;';
         editBtn.textContent = '✏️ Bearbeiten';
         (function(entry){
-          editBtn.onclick = function(){
-            $set('uz-datum', 'value', entry.date);
-            $set('uz-betrag', 'value', entry.betrag);
-            $set('uz-kunden', 'value', entry.kunden);
-            const umsEl=document.getElementById('sl-tab-umsatz');if(umsEl)umsEl.scrollTop=0;
-            // Visuelles Feedback: Speichern-Button hervorheben
-            const saveBtn=document.querySelector('#sl-tab-umsatz button');
-            if(saveBtn){saveBtn.style.background='#16a34a';saveBtn.textContent='💾 Änderung speichern';}
-            setTimeout(function(){
-              const fEl=document.getElementById('uz-betrag');
-              if(fEl){fEl.focus();fEl.select();}
-            }, 150);
-          };
+          editBtn.onclick = function(){ uzEditEntry(entry); };
         })(u);
         row.appendChild(info);
         row.appendChild(editBtn);
@@ -7148,6 +7195,765 @@ function renderUmsatz() {
       });
     }
   }
+  try { renderUmsatzVerlauf(); } catch(e) { console.warn('[Umsatz-Verlauf]', e); }
+}
+
+// ═══════════════════════════════════════════
+// UMSATZ-VERLAUF (Gesamt · Monate · Kunden · Wochentage · Lücken · CSV)
+// Nutzt ausschließlich die vorhandenen umsatzData-Einträge {date, betrag, kunden}
+// ═══════════════════════════════════════════
+var _uzVerlaufYear = 'alle';
+var _uzSelMonth = null;   // 'YYYY-MM' im Diagramm ausgewählt
+var _uzOpenMonth = null;  // 'YYYY-MM' in der Tabelle aufgeklappt
+var _uzEditDate = null;   // Datum, das gerade über "Bearbeiten" geladen wurde
+var UZ_MONATE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+var UZ_MON_K = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+var UZ_TAGE = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+
+function uzEur(v, dec) {
+  var d = dec || 0;
+  return (Number(v)||0).toLocaleString('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d}) + ' €';
+}
+function uzNum(v) { return (Number(v)||0).toLocaleString('de-DE',{maximumFractionDigits:0}); }
+function uzMonthLabel(ym, kurz) {
+  var y = ym.slice(0,4), m = parseInt(ym.slice(5,7),10)-1;
+  return (kurz ? UZ_MON_K[m] + ' ' + y.slice(2) : UZ_MONATE[m] + ' ' + y);
+}
+function uzDaysInMonth(ym) {
+  // Laufender Monat: nur die bisher vergangenen Tage zählen (heute inklusive)
+  var nowK = new Date().toISOString().slice(0,10);
+  if(ym === nowK.slice(0,7)) return parseInt(nowK.slice(8,10),10);
+  var y = parseInt(ym.slice(0,4),10), m = parseInt(ym.slice(5,7),10);
+  return new Date(y, m, 0).getDate();
+}
+function uzValid() {
+  return (Array.isArray(umsatzData) ? umsatzData : []).filter(function(u){
+    return u && typeof u.date === 'string' && u.date.length === 10 && !isNaN(Number(u.betrag));
+  });
+}
+// Kennzahlen für eine Menge von Tageseinträgen
+function uzAgg(arr) {
+  var umsatz = 0, kunden = 0, tageMitKunden = 0, umsatzMitKunden = 0;
+  arr.forEach(function(u){
+    var b = Number(u.betrag)||0, k = Number(u.kunden)||0;
+    umsatz += b;
+    if(k > 0){ kunden += k; tageMitKunden++; umsatzMitKunden += b; }
+  });
+  return {
+    tage: arr.length,
+    umsatz: umsatz,
+    kunden: kunden,
+    avgTag: arr.length ? umsatz/arr.length : 0,
+    avgKunden: tageMitKunden ? kunden/tageMitKunden : 0,
+    bon: kunden ? umsatzMitKunden/kunden : 0   // gewichteter Ø-Bon (nur Tage mit Kundenzahl)
+  };
+}
+function uzByMonth(arr) {
+  var map = {};
+  arr.forEach(function(u){ var k = u.date.slice(0,7); (map[k] = map[k] || []).push(u); });
+  return Object.keys(map).sort().map(function(k){
+    var a = uzAgg(map[k]); a.ym = k; a.entries = map[k].slice().sort(function(x,y){return x.date.localeCompare(y.date);}); return a;
+  });
+}
+
+function uzEditEntry(entry) {
+  _uzEditDate = entry.date;
+  $set('uz-datum', 'value', entry.date);
+  $set('uz-betrag', 'value', entry.betrag);
+  $set('uz-kunden', 'value', entry.kunden);
+  var umsEl = document.getElementById('sl-tab-umsatz'); if(umsEl) umsEl.scrollTop = 0;
+  var saveBtn = document.getElementById('uz-save-btn');
+  if(saveBtn){ saveBtn.style.background = '#16a34a'; saveBtn.textContent = '💾 Änderung speichern'; }
+  setTimeout(function(){ var fEl = document.getElementById('uz-betrag'); if(fEl){ fEl.focus(); fEl.select(); } }, 150);
+}
+
+function renderUmsatzVerlauf() {
+  var box = document.getElementById('uz-verlauf');
+  if(!box) return;
+  var all = uzValid();
+  if(!all.length){ box.innerHTML = ''; return; }
+
+  var years = {};
+  all.forEach(function(u){ years[u.date.slice(0,4)] = true; });
+  var yearList = Object.keys(years).sort();
+  if(_uzVerlaufYear !== 'alle' && !years[_uzVerlaufYear]) _uzVerlaufYear = 'alle';
+  var data = _uzVerlaufYear === 'alle' ? all : all.filter(function(u){ return u.date.slice(0,4) === _uzVerlaufYear; });
+  var g = uzAgg(data);
+  var sorted = data.slice().sort(function(a,b){ return a.date.localeCompare(b.date); });
+  var first = sorted[0], last = sorted[sorted.length-1];
+  var best = sorted.reduce(function(m,u){ return (Number(u.betrag)||0) > (Number(m.betrag)||0) ? u : m; }, sorted[0]);
+  var fmtD = function(ds){ var p = ds.split('-'); return p[2]+'.'+p[1]+'.'+p[0]; };
+  var months = uzByMonth(data);
+  var sec = function(t){ return '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#999;margin:16px 0 8px;">'+t+'</div>'; };
+  var card = 'background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 7px rgba(0,0,0,.07);margin-bottom:10px;';
+  var h = '';
+
+  // ── Jahr-Filter ──
+  h += sec('📈 Verlauf & Historie');
+  if(yearList.length > 1){
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">';
+    ['alle'].concat(yearList).forEach(function(y){
+      var on = y === _uzVerlaufYear;
+      h += '<button data-uzyear="'+y+'" style="border:none;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:'+(on?'#0f3460':'#e8edf5')+';color:'+(on?'#fff':'#0f3460')+';">'+(y==='alle'?'Gesamt':y)+'</button>';
+    });
+    h += '</div>';
+  }
+
+  // ── Gesamt-Karte ──
+  h += '<div style="background:linear-gradient(135deg,#0f3460,#1e3a5f);border-radius:14px;padding:16px;color:#fff;margin-bottom:10px;">'+
+    '<div style="font-size:11px;color:rgba(255,255,255,.65);font-weight:600;">Gesamtumsatz '+(_uzVerlaufYear==='alle'?'seit Start':_uzVerlaufYear)+'</div>'+
+    '<div style="font-size:30px;font-weight:900;letter-spacing:-.5px;margin:2px 0 2px;">'+uzEur(g.umsatz)+'</div>'+
+    '<div style="font-size:11px;color:rgba(255,255,255,.65);">'+fmtD(first.date)+' – '+fmtD(last.date)+' · '+g.tage+' Tage erfasst</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">'+
+      [[uzNum(g.kunden),'Kunden gesamt'],[uzEur(g.avgTag),'Ø Umsatz / Tag'],[uzEur(g.bon,2),'Ø Bon / Kunde']].map(function(x){
+        return '<div style="background:rgba(255,255,255,.1);border-radius:10px;padding:9px 6px;text-align:center;"><div style="font-size:15px;font-weight:800;">'+x[0]+'</div><div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:1px;">'+x[1]+'</div></div>';
+      }).join('')+
+    '</div>'+
+    '<div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:10px;">🏆 Bester Tag: <strong>'+UZ_TAGE[new Date(best.date+'T12:00:00').getDay()]+' '+fmtD(best.date)+'</strong> mit '+uzEur(best.betrag)+(best.kunden?' · '+uzNum(best.kunden)+' Kunden':'')+'</div>'+
+  '</div>';
+
+  // ── Monats-Diagramm ──
+  if(!_uzSelMonth || !months.some(function(m){return m.ym===_uzSelMonth;})) _uzSelMonth = months[months.length-1].ym;
+  var maxU = Math.max.apply(null, months.map(function(m){ return m.umsatz; })) || 1;
+  var chartH = 150;
+  h += sec('📊 Umsatz pro Monat');
+  h += '<div style="'+card+'">';
+  h += '<div style="display:flex;align-items:flex-end;gap:2px;height:'+(chartH+20)+'px;border-bottom:1px solid #e5e7eb;overflow-x:auto;">';
+  months.forEach(function(m){
+    var bh = Math.max(3, Math.round(m.umsatz/maxU*chartH));
+    var sel = m.ym === _uzSelMonth;
+    var teil = m.tage < uzDaysInMonth(m.ym);
+    h += '<button data-uzsel="'+m.ym+'" title="'+uzMonthLabel(m.ym)+': '+uzEur(m.umsatz)+'" style="flex:1;min-width:34px;max-width:70px;height:100%;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:0;font-family:inherit;">'+
+      (sel?'<div style="font-size:10px;font-weight:800;color:#0f3460;white-space:nowrap;margin-bottom:3px;">'+uzNum(Math.round(m.umsatz/1000))+'k €</div>':'')+
+      '<div style="width:72%;height:'+bh+'px;border-radius:4px 4px 0 0;background:'+(sel?'#0f3460':'#9fb3cf')+';'+(teil?'background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.35) 0 3px,transparent 3px 7px);':'')+'"></div>'+
+    '</button>';
+  });
+  h += '</div>';
+  h += '<div style="display:flex;gap:2px;overflow:hidden;">'+months.map(function(m){
+    return '<div style="flex:1;min-width:34px;max-width:70px;text-align:center;font-size:10px;color:'+(m.ym===_uzSelMonth?'#0f3460':'#888')+';font-weight:'+(m.ym===_uzSelMonth?'800':'500')+';padding-top:4px;">'+UZ_MON_K[parseInt(m.ym.slice(5,7),10)-1]+'</div>';
+  }).join('')+'</div>';
+  if(months.some(function(m){ return m.tage < uzDaysInMonth(m.ym); }))
+    h += '<div style="font-size:10px;color:#999;margin-top:6px;">Schraffiert = Monat nicht vollständig erfasst. Tippe auf einen Balken für Details.</div>';
+
+  // Details zum gewählten Monat
+  var mi = months.findIndex(function(m){ return m.ym === _uzSelMonth; });
+  var sm = months[mi], prev = mi > 0 ? months[mi-1] : null;
+  var delta = prev && prev.avgTag ? (sm.avgTag - prev.avgTag)/prev.avgTag*100 : null;
+  h += '<div style="margin-top:12px;border-top:1px solid #f0f0f0;padding-top:12px;">'+
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;">'+
+      '<div style="font-size:15px;font-weight:900;color:#1a1a2e;">'+uzMonthLabel(sm.ym)+'</div>'+
+      (delta!==null?'<div style="font-size:11px;font-weight:700;color:'+(delta>=0?'#15803d':'#b91c1c')+';">'+(delta>=0?'▲ +':'▼ ')+delta.toFixed(1).replace('.',',')+' % Ø/Tag ggü. '+UZ_MON_K[parseInt(prev.ym.slice(5,7),10)-1]+'</div>':'')+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;">'+
+      [[uzEur(sm.umsatz),'Umsatz'],[uzNum(sm.kunden),'Kunden'],[sm.tage+' / '+uzDaysInMonth(sm.ym),'Tage erfasst'],
+       [uzEur(sm.avgTag),'Ø Umsatz / Tag'],[uzNum(Math.round(sm.avgKunden)),'Ø Kunden / Tag'],[uzEur(sm.bon,2),'Ø Bon']].map(function(x){
+        return '<div style="background:#f5f7fb;border-radius:9px;padding:8px 4px;text-align:center;"><div style="font-size:14px;font-weight:800;color:#0f3460;">'+x[0]+'</div><div style="font-size:10px;color:#888;margin-top:1px;">'+x[1]+'</div></div>';
+      }).join('')+
+    '</div></div>';
+  h += '</div>';
+
+  // ── Monatstabelle ──
+  h += sec('🗓️ Alle Monate');
+  h += '<div style="'+card+'padding:6px 0;overflow-x:auto;">';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:430px;">'+
+    '<thead><tr style="color:#888;font-size:10px;text-transform:uppercase;letter-spacing:.5px;">'+
+    '<th style="text-align:left;padding:6px 10px;">Monat</th><th style="text-align:right;padding:6px 6px;">Umsatz</th><th style="text-align:right;padding:6px 6px;">Kunden</th><th style="text-align:right;padding:6px 6px;">Ø/Tag</th><th style="text-align:right;padding:6px 6px;">Ø Bon</th><th style="text-align:right;padding:6px 10px;">Tage</th></tr></thead><tbody>';
+  months.slice().reverse().forEach(function(m){
+    var open = m.ym === _uzOpenMonth;
+    h += '<tr data-uzopen="'+m.ym+'" style="border-top:1px solid #f0f0f0;cursor:pointer;background:'+(open?'#f5f7fb':'#fff')+';">'+
+      '<td style="padding:9px 10px;font-weight:700;white-space:nowrap;">'+(open?'▾ ':'▸ ')+uzMonthLabel(m.ym)+'</td>'+
+      '<td style="padding:9px 6px;text-align:right;font-weight:800;color:#0f3460;white-space:nowrap;">'+uzEur(m.umsatz)+'</td>'+
+      '<td style="padding:9px 6px;text-align:right;white-space:nowrap;">'+uzNum(m.kunden)+'</td>'+
+      '<td style="padding:9px 6px;text-align:right;white-space:nowrap;">'+uzEur(m.avgTag)+'</td>'+
+      '<td style="padding:9px 6px;text-align:right;white-space:nowrap;">'+uzEur(m.bon,2)+'</td>'+
+      '<td style="padding:9px 10px;text-align:right;color:'+(m.tage<uzDaysInMonth(m.ym)?'#b45309':'#888')+';">'+m.tage+'/'+uzDaysInMonth(m.ym)+'</td></tr>';
+    if(open){
+      h += '<tr><td colspan="6" style="padding:0 8px 8px;background:#f5f7fb;"><div style="display:flex;flex-direction:column;gap:4px;">';
+      m.entries.slice().reverse().forEach(function(u){
+        var bonV = u.kunden > 0 ? (u.betrag/u.kunden).toFixed(2).replace('.',',') + ' €' : '–';
+        h += '<div style="background:#fff;border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;">'+
+          '<div style="width:62px;font-weight:700;font-size:12px;">'+UZ_TAGE[new Date(u.date+'T12:00:00').getDay()]+' '+u.date.slice(8,10)+'.'+u.date.slice(5,7)+'.</div>'+
+          '<div style="flex:1;font-size:12px;"><strong style="color:#0f3460;">'+uzEur(u.betrag)+'</strong> <span style="color:#888;">· '+uzNum(u.kunden)+' Kunden · Ø '+bonV+'</span></div>'+
+          '<button data-uzedit="'+u.date+'" style="background:#e8f0fe;border:none;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:700;color:#1a56db;cursor:pointer;font-family:inherit;">✏️</button></div>';
+      });
+      h += '</div></td></tr>';
+    }
+  });
+  var gt = uzAgg(data);
+  h += '<tr style="border-top:2px solid #0f3460;font-weight:900;"><td style="padding:9px 10px;">Summe</td><td style="padding:9px 6px;text-align:right;color:#0f3460;white-space:nowrap;">'+uzEur(gt.umsatz)+'</td><td style="padding:9px 6px;text-align:right;">'+uzNum(gt.kunden)+'</td><td style="padding:9px 6px;text-align:right;white-space:nowrap;">'+uzEur(gt.avgTag)+'</td><td style="padding:9px 6px;text-align:right;white-space:nowrap;">'+uzEur(gt.bon,2)+'</td><td style="padding:9px 10px;text-align:right;">'+gt.tage+'</td></tr>';
+  h += '</tbody></table></div>';
+
+  // ── Wochentage ──
+  var wd = [1,2,3,4,5,6,0].map(function(d){
+    var a = uzAgg(data.filter(function(u){ return new Date(u.date+'T12:00:00').getDay() === d; }));
+    a.d = d; return a;
+  });
+  var maxW = Math.max.apply(null, wd.map(function(w){ return w.avgTag; })) || 1;
+  h += sec('📆 Ø nach Wochentag');
+  h += '<div style="'+card+'">';
+  wd.forEach(function(w){
+    var pct = Math.round(w.avgTag/maxW*100);
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">'+
+      '<div style="width:24px;font-size:12px;font-weight:800;color:#333;">'+UZ_TAGE[w.d]+'</div>'+
+      '<div style="flex:1;background:#f0f3f8;border-radius:4px;height:18px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:#0f3460;border-radius:0 4px 4px 0;"></div></div>'+
+      '<div style="width:150px;text-align:right;font-size:11px;color:#555;white-space:nowrap;"><strong style="color:#0f3460;">'+uzEur(w.avgTag)+'</strong> · '+uzNum(Math.round(w.avgKunden))+' Kd.</div></div>';
+  });
+  h += '<div style="font-size:10px;color:#999;margin-top:2px;">Hilft bei der Personalplanung: an starken Tagen mehr Besetzung einplanen.</div></div>';
+
+  // ── Fehlende Tage (letzte 45 Tage, ab erstem Eintrag) ──
+  var have = {}; all.forEach(function(u){ have[u.date] = true; });
+  var firstAll = all.reduce(function(m,u){ return u.date < m ? u.date : m; }, all[0].date);
+  var missing = [];
+  var todayK = new Date().toISOString().slice(0,10);
+  for(var i = 1; i <= 45; i++){
+    var dd = new Date(); dd.setDate(dd.getDate()-i);
+    var k = dd.toISOString().slice(0,10);
+    if(k < firstAll) break;
+    if(k !== todayK && !have[k]) missing.push(k);
+  }
+  if(missing.length){
+    h += '<div style="background:#fff7ed;border:1.5px solid #fdba74;border-radius:12px;padding:12px 14px;margin:12px 0 10px;">'+
+      '<div style="font-size:12px;font-weight:800;color:#9a3412;margin-bottom:6px;">⚠️ '+missing.length+' Tag'+(missing.length>1?'e':'')+' ohne Umsatz-Eintrag (letzte 45 Tage)</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:5px;">'+missing.map(function(k){
+        return '<button data-uzmiss="'+k+'" style="background:#fff;border:1px solid #fdba74;border-radius:7px;padding:4px 8px;font-size:11px;font-weight:700;color:#9a3412;cursor:pointer;font-family:inherit;">'+UZ_TAGE[new Date(k+'T12:00:00').getDay()]+' '+k.slice(8,10)+'.'+k.slice(5,7)+'.</button>';
+      }).join('')+'</div>'+
+      '<div style="font-size:10px;color:#9a3412;margin-top:6px;">Antippen, um den Tag nachzutragen.</div></div>';
+  }
+
+  // ── Export ──
+  h += '<button id="uz-csv-btn" style="width:100%;background:#fff;border:1.5px solid #0f3460;color:#0f3460;border-radius:10px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;margin:4px 0 4px;">📤 Umsätze als CSV (Excel) exportieren</button>';
+
+  box.innerHTML = h;
+
+  // ── Events ──
+  box.querySelectorAll('[data-uzyear]').forEach(function(b){ b.onclick = function(){ _uzVerlaufYear = b.getAttribute('data-uzyear'); _uzSelMonth = null; renderUmsatzVerlauf(); }; });
+  box.querySelectorAll('[data-uzsel]').forEach(function(b){ b.onclick = function(){ _uzSelMonth = b.getAttribute('data-uzsel'); renderUmsatzVerlauf(); }; });
+  box.querySelectorAll('[data-uzopen]').forEach(function(r){ r.onclick = function(){ var ym = r.getAttribute('data-uzopen'); _uzOpenMonth = (_uzOpenMonth === ym ? null : ym); renderUmsatzVerlauf(); }; });
+  box.querySelectorAll('[data-uzedit]').forEach(function(b){ b.onclick = function(e){ e.stopPropagation(); var d = b.getAttribute('data-uzedit'); var en = umsatzData.find(function(u){ return u.date === d; }); if(en) uzEditEntry(en); }; });
+  box.querySelectorAll('[data-uzmiss]').forEach(function(b){ b.onclick = function(){
+    _uzEditDate = null;
+    $set('uz-datum','value',b.getAttribute('data-uzmiss')); $set('uz-betrag','value',''); $set('uz-kunden','value','');
+    var umsEl = document.getElementById('sl-tab-umsatz'); if(umsEl) umsEl.scrollTop = 0;
+    setTimeout(function(){ var f = document.getElementById('uz-betrag'); if(f) f.focus(); }, 150);
+  }; });
+  var csvBtn = document.getElementById('uz-csv-btn'); if(csvBtn) csvBtn.onclick = exportUmsatzCSV;
+}
+
+function exportUmsatzCSV() {
+  var rows = uzValid().slice().sort(function(a,b){ return a.date.localeCompare(b.date); });
+  if(!rows.length){ alert('Keine Umsatzdaten vorhanden.'); return; }
+  var dec = function(v,d){ return (Number(v)||0).toFixed(d).replace('.',','); };
+  var lines = ['Datum;Wochentag;Monat;Umsatz;Kunden;Bon'];
+  rows.forEach(function(u){
+    var p = u.date.split('-');
+    lines.push(p[2]+'.'+p[1]+'.'+p[0]+';'+UZ_TAGE[new Date(u.date+'T12:00:00').getDay()]+';'+u.date.slice(0,7)+';'+dec(u.betrag,2)+';'+(Number(u.kunden)||0)+';'+(u.kunden>0?dec(u.betrag/u.kunden,2):''));
+  });
+  lines.push('');
+  lines.push('Monat;Umsatz;Kunden;Tage;Ø Umsatz/Tag;Ø Bon');
+  uzByMonth(rows).forEach(function(m){ lines.push(m.ym+';'+dec(m.umsatz,2)+';'+m.kunden+';'+m.tage+';'+dec(m.avgTag,2)+';'+dec(m.bon,2)); });
+  var blob = new Blob(['﻿'+lines.join('\r\n')], {type:'text/csv;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Prima_Umsatz_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+// ═══════════════════════════════════════════
+// ZIGARETTEN-INVENTUR (täglich, über Admin-Konsole konfigurierbar)
+// Daten:  zigInvConfig  – Einstellungen + Artikelliste (Admin, Master-Daten)
+//         zigInvHistory – eine Zählung pro Tag, 60 Tage aufbewahrt
+// Methoden:
+//   'rechnung' – Soll = Vortag-Ist + Zugang − Verkauft (lt. Kasse); Ist zählen
+//   'kasse'    – Soll-Bestand von der Kasse ablesen und eintragen; Ist zählen
+//   'zaehlen'  – nur Ist zählen (+ Zugang); zeigt Abverkauf seit Vortag
+// ═══════════════════════════════════════════
+var ZIG_KEEP_DAYS = 60;
+var ZIG_METHODEN = {
+  rechnung: {lbl:'Soll berechnen', sub:'Vortag + Zugang − Verkauft (Kasse) = Soll'},
+  kasse:    {lbl:'Soll aus Kasse', sub:'Soll-Bestand wird von der Kasse abgelesen'},
+  zaehlen:  {lbl:'Nur zählen',     sub:'Bestand zählen, Abverkauf wird berechnet'}
+};
+var zigInvConfig = lsLoad('zigInvConfig', null);
+if(!zigInvConfig || typeof zigInvConfig !== 'object') zigInvConfig = {};
+function zigCfgDefaults(c){
+  if(c.aktiv === undefined) c.aktiv = true;
+  if(!ZIG_METHODEN[c.methode]) c.methode = 'rechnung';
+  if(!c.faelligAb) c.faelligAb = '21:00';
+  if(!Array.isArray(c.tage)) c.tage = [0,1,2,3,4,5,6];
+  if(c.toleranz === undefined) c.toleranz = 0;
+  if(!Array.isArray(c.gruppen) || !c.gruppen.length) c.gruppen = ['Zigaretten','Tabak','Zigarillos','Sonstiges'];
+  if(!Array.isArray(c.artikel)) c.artikel = [];
+  return c;
+}
+zigCfgDefaults(zigInvConfig);
+var zigInvHistory = lsLoad('zigInvHistory', []);
+if(!Array.isArray(zigInvHistory)) zigInvHistory = [];
+var _zigBackTo = 's-info';
+var _zigTaskId = null;
+var _zigDraft = {};
+
+function zigToday(){ return new Date().toISOString().slice(0,10); }
+function zigFmtDate(ds){ var p = (ds||'').split('-'); return p.length===3 ? p[2]+'.'+p[1]+'.'+p[0] : ds; }
+function zigEsc(t){ return String(t==null?'':t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function zigEur(v){ return (Number(v)||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'; }
+function zigNumOrNull(v){ if(v===''||v===null||v===undefined) return null; var n = Number(String(v).replace(',','.')); return isNaN(n) ? null : n; }
+function zigAktiveArtikel(){ return zigInvConfig.artikel.filter(function(a){ return a.aktiv !== false; }); }
+function zigSaveCfg(){ lsSave('zigInvConfig', zigInvConfig); }
+function zigTodayEntry(){ var t = zigToday(); return zigInvHistory.find(function(h){ return h.date === t; }) || null; }
+function zigIsDueToday(){ return zigInvConfig.tage.indexOf(new Date().getDay()) !== -1; }
+function zigIsOverdue(){
+  if(!zigInvConfig.aktiv || !zigAktiveArtikel().length || !zigIsDueToday() || zigTodayEntry()) return false;
+  var n = new Date(), hm = ('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2);
+  return n.getHours() >= 2 && hm >= zigInvConfig.faelligAb;
+}
+// Letzter gezählter Ist-Bestand je Artikel VOR einem Datum
+function zigVortagMap(beforeDate){
+  var map = {};
+  zigInvHistory.filter(function(h){ return h.date < beforeDate; })
+    .sort(function(a,b){ return b.date.localeCompare(a.date); })
+    .forEach(function(h){ (h.items||[]).forEach(function(it){ if(map[it.a] === undefined && it.i !== null && it.i !== undefined) map[it.a] = {v:it.i, date:h.date}; }); });
+  return map;
+}
+// Tabak-Aufgaben in der Checkliste erkennen (z. B. "Tabakkontrolle durchführen")
+function zigIsTabakTask(task){
+  return !!(task && zigInvConfig.aktiv && zigAktiveArtikel().length && /tabak|zigarett/i.test(task.text||''));
+}
+
+// ── Berechnung je Artikel ──
+function zigCalc(art, d, vortag){
+  var m = zigInvConfig.methode;
+  var z = zigNumOrNull(d.z), k = zigNumOrNull(d.k), s = zigNumOrNull(d.s), i = zigNumOrNull(d.i);
+  var v = vortag ? vortag.v : null;
+  var soll = null;
+  if(m === 'rechnung' && v !== null) soll = v + (z||0) - (k||0);
+  if(m === 'kasse') soll = s;
+  var diff = (soll !== null && i !== null) ? i - soll : null;
+  var abverkauf = (m === 'zaehlen' && v !== null && i !== null) ? v + (z||0) - i : null;
+  var preis = Number(art.preis)||0;
+  var tol = Number(zigInvConfig.toleranz)||0;
+  return {z:z, k:k, s:s, i:i, v:v, soll:soll, diff:diff, eur: diff!==null ? Math.round(diff*preis*100)/100 : null,
+          auffaellig: diff!==null && Math.abs(diff) > tol, abverkauf:abverkauf};
+}
+
+// ── Öffnen ──
+function openZigInv(fromTaskId){
+  _zigTaskId = fromTaskId || null;
+  _zigBackTo = fromTaskId ? 's-cl' : 's-info';
+  var key = 'zigDraft_'+zigToday();
+  _zigDraft = lsLoad(key, null) || {};
+  // Bereits gezählt? Werte als Vorschlag laden, damit korrigiert werden kann
+  var te = zigTodayEntry();
+  if(te && !Object.keys(_zigDraft).length){
+    (te.items||[]).forEach(function(it){ _zigDraft[it.a] = {z:it.z==null?'':it.z, k:it.k==null?'':it.k, s:it.s==null?'':it.s, i:it.i==null?'':it.i}; });
+  }
+  renderZigInv();
+  go('s-ziginv');
+}
+function zigBack(){ go(_zigBackTo || 's-info'); if(_zigBackTo === 's-cl'){ try{ renderCL(); }catch(e){} } }
+function zigDraftSave(){ try{ localStorage.setItem('prima_zigDraft_'+zigToday(), JSON.stringify(_zigDraft)); }catch(e){} }
+
+function renderZigInv(){
+  var body = document.getElementById('zig-body'); if(!body) return;
+  var cfg = zigInvConfig, arts = zigAktiveArtikel(), m = cfg.methode;
+  var today = zigToday(), te = zigTodayEntry();
+  var vmap = zigVortagMap(today);
+  var h = '';
+  if(!arts.length){
+    body.innerHTML = '<div style="background:#fff;border-radius:14px;padding:26px 18px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06);">'+
+      '<div style="font-size:40px;">🚬</div><div style="font-size:15px;font-weight:800;margin:8px 0 4px;">Noch keine Artikel angelegt</div>'+
+      '<div style="font-size:12px;color:#888;line-height:1.5;">Die Artikelliste wird in der Admin-Konsole unter<br><strong>🚬 Zigaretten-Inventur</strong> gepflegt.</div></div>';
+    $html('zig-footer',''); renderZigVerlauf(body); return;
+  }
+  var nameOpts = (names||[]).map(function(n){ return '<option'+(n===(st.name||(te&&te.ma))?' selected':'')+'>'+zigEsc(n)+'</option>'; }).join('');
+  h += '<div style="background:#fff;border-radius:14px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:10px;">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">'+
+      '<div><div style="font-size:17px;font-weight:900;">Zählung '+zigFmtDate(today)+'</div>'+
+      '<div style="font-size:11px;color:#888;margin-top:2px;">'+ZIG_METHODEN[m].lbl+' · '+ZIG_METHODEN[m].sub+'</div></div>'+
+      '<div style="min-width:150px;"><label style="font-size:10px;font-weight:700;color:#666;display:block;margin-bottom:3px;">Gezählt von</label>'+
+      '<select id="zig-ma" style="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;background:#fff;"><option value="">– bitte wählen –</option>'+nameOpts+'</select></div>'+
+    '</div>'+
+    (te ? '<div style="background:#ecfdf5;border-radius:9px;padding:8px 10px;margin-top:10px;font-size:12px;color:#065f46;font-weight:600;">✅ Heute bereits gezählt von '+zigEsc(te.ma)+' ('+zigEsc(te.ts)+'). Erneutes Speichern ersetzt diese Zählung.</div>' : '')+
+    (!zigIsDueToday() ? '<div style="background:#f4f4f5;border-radius:9px;padding:8px 10px;margin-top:10px;font-size:12px;color:#555;">ℹ️ Heute ist laut Einstellung keine Zählung fällig – freiwillige Zählung möglich.</div>' : '')+
+    '<div style="height:6px;background:#f0f0f0;border-radius:4px;margin-top:12px;overflow:hidden;"><div id="zig-prog" style="height:100%;width:0;background:#c2410c;transition:width .2s;"></div></div>'+
+    '<div id="zig-prog-txt" style="font-size:11px;color:#888;margin-top:4px;"></div>'+
+    (arts.length > 12 ? '<input id="zig-search" type="search" placeholder="🔍 Artikel suchen …" style="width:100%;margin-top:10px;border:1.5px solid #e0e0e0;border-radius:9px;padding:9px 11px;font-size:14px;font-family:inherit;box-sizing:border-box;">' : '')+
+  '</div>';
+
+  var inpCss = 'width:100%;box-sizing:border-box;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 4px;font-size:16px;font-weight:700;text-align:center;font-family:inherit;background:#fff;';
+  var lblCss = 'font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.3px;text-align:center;margin-bottom:2px;';
+  var fld = function(id, f, label, val, hl){
+    return '<div style="flex:1;min-width:58px;max-width:90px;"><div style="'+lblCss+'">'+label+'</div>'+
+      '<input data-zig="'+id+'" data-f="'+f+'" type="number" inputmode="numeric" min="0" step="1" value="'+(val==null?'':zigEsc(val))+'" style="'+inpCss+(hl?'border-color:#c2410c;':'')+'"></div>';
+  };
+  var groups = cfg.gruppen.concat(arts.map(function(a){return a.gruppe||'Sonstiges';}).filter(function(g,i,arr){ return cfg.gruppen.indexOf(g)===-1 && arr.indexOf(g)===i; }));
+  groups.forEach(function(g){
+    var ga = arts.filter(function(a){ return (a.gruppe||'Sonstiges') === g; });
+    if(!ga.length) return;
+    h += '<div class="zig-grp" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#9a3412;margin:14px 2px 6px;">'+zigEsc(g)+' <span style="color:#bbb;">('+ga.length+')</span></div>';
+    ga.forEach(function(a){
+      var d = _zigDraft[a.id] || {};
+      var vt = vmap[a.id];
+      h += '<div class="zig-row" data-name="'+zigEsc((a.name+' '+(a.ean||'')).toLowerCase())+'" style="background:#fff;border-radius:12px;padding:10px 12px;margin-bottom:7px;box-shadow:0 1px 5px rgba(0,0,0,.06);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'+
+        '<div style="flex:1 1 170px;min-width:150px;"><div style="font-size:14px;font-weight:800;line-height:1.25;">'+zigEsc(a.name)+'</div>'+
+        '<div style="font-size:11px;color:#888;margin-top:2px;">Vortag: <strong>'+(vt?vt.v:'–')+'</strong>'+(vt&&vt.date!==zigPrevDay(today)?' ('+zigFmtDate(vt.date).slice(0,6)+')':'')+(a.preis?' · '+zigEur(a.preis):'')+'</div></div>'+
+        '<div style="display:flex;gap:6px;flex:1 1 220px;justify-content:flex-end;align-items:flex-end;">'+
+          (m!=='kasse' ? fld(a.id,'z','Zugang',d.z) : '')+
+          (m==='rechnung' ? fld(a.id,'k','Verkauft',d.k) : '')+
+          (m==='kasse' ? fld(a.id,'s','Soll Kasse',d.s) : '')+
+          fld(a.id,'i','Ist gezählt',d.i,true)+
+          '<div id="zig-d-'+a.id+'" style="min-width:64px;text-align:center;font-size:12px;font-weight:800;padding-bottom:9px;"></div>'+
+        '</div></div>';
+    });
+  });
+  body.innerHTML = h;
+  renderZigVerlauf(body);
+
+  // Footer (immer sichtbar)
+  $html('zig-footer',
+    '<div id="zig-sum" style="font-size:12px;font-weight:700;color:#444;text-align:center;margin-bottom:7px;"></div>'+
+    '<button onclick="submitZigInv()" style="width:100%;background:#c2410c;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;">✅ Zählung speichern</button>');
+
+  body.querySelectorAll('input[data-zig]').forEach(function(inp){
+    inp.addEventListener('input', function(){
+      var id = inp.getAttribute('data-zig'), f = inp.getAttribute('data-f');
+      if(!_zigDraft[id]) _zigDraft[id] = {};
+      _zigDraft[id][f] = inp.value;
+      zigDraftSave(); zigUpdateCalc();
+    });
+    inp.addEventListener('focus', function(){ try{ inp.select(); }catch(e){} });
+  });
+  var se = document.getElementById('zig-search');
+  if(se) se.addEventListener('input', function(){
+    var q = se.value.trim().toLowerCase();
+    body.querySelectorAll('.zig-row').forEach(function(r){ r.style.display = (!q || r.getAttribute('data-name').indexOf(q) !== -1) ? 'flex' : 'none'; });
+    body.querySelectorAll('.zig-grp').forEach(function(g){ g.style.display = q ? 'none' : ''; });
+  });
+  zigUpdateCalc();
+}
+function zigPrevDay(ds){ var d = new Date(ds+'T12:00:00'); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); }
+
+function zigUpdateCalc(){
+  var arts = zigAktiveArtikel(), vmap = zigVortagMap(zigToday()), m = zigInvConfig.methode;
+  var done = 0, sumStk = 0, sumEur = 0, nAuff = 0;
+  arts.forEach(function(a){
+    var c = zigCalc(a, _zigDraft[a.id]||{}, vmap[a.id]);
+    if(c.i !== null) done++;
+    var el = document.getElementById('zig-d-'+a.id); if(!el) return;
+    if(m === 'zaehlen'){
+      el.innerHTML = c.abverkauf !== null ? '<div style="font-size:9px;color:#999;font-weight:700;">ABVERKAUF</div><div style="color:#334155;">'+c.abverkauf+'</div>' : '<span style="color:#ccc;">–</span>';
+      return;
+    }
+    if(c.diff === null){
+      el.innerHTML = c.soll !== null ? '<div style="font-size:9px;color:#999;font-weight:700;">SOLL</div><div style="color:#334155;">'+c.soll+'</div>' :
+        (m==='rechnung' && c.v===null && c.i!==null ? '<div style="font-size:9px;color:#999;font-weight:700;">START</div><div style="color:#334155;">✓</div>' : '<span style="color:#ccc;">–</span>');
+      return;
+    }
+    sumStk += c.diff; sumEur += c.eur||0; if(c.auffaellig) nAuff++;
+    var col = c.diff === 0 ? '#15803d' : (c.auffaellig ? '#b91c1c' : '#b45309');
+    el.innerHTML = '<div style="font-size:9px;color:#999;font-weight:700;">SOLL '+c.soll+'</div><div style="color:'+col+';font-size:14px;">'+(c.diff>0?'+':'')+c.diff+(c.diff===0?' ✓':'')+'</div>';
+  });
+  var pct = arts.length ? Math.round(done/arts.length*100) : 0;
+  $style('zig-prog','width',pct+'%');
+  $text('zig-prog-txt', done+' von '+arts.length+' Artikeln gezählt');
+  var sum = document.getElementById('zig-sum');
+  if(sum){
+    if(m === 'zaehlen') sum.textContent = done+' / '+arts.length+' gezählt';
+    else sum.innerHTML = done+' / '+arts.length+' gezählt · Abweichung: <span style="color:'+(nAuff?'#b91c1c':'#15803d')+';">'+(sumStk>0?'+':'')+sumStk+' Stk · '+(sumEur>0?'+':'')+zigEur(sumEur)+'</span>'+(nAuff?' · '+nAuff+' auffällig':'');
+  }
+}
+
+function submitZigInv(){
+  var arts = zigAktiveArtikel(); if(!arts.length) return;
+  var ma = ($val('zig-ma')||'').trim();
+  if(!ma){ alert('Bitte auswählen, wer gezählt hat.'); var s = document.getElementById('zig-ma'); if(s) s.focus(); return; }
+  var today = zigToday(), vmap = zigVortagMap(today), m = zigInvConfig.methode;
+  var items = [], dev = [], sumStk = 0, sumEur = 0, offen = [];
+  arts.forEach(function(a){
+    var c = zigCalc(a, _zigDraft[a.id]||{}, vmap[a.id]);
+    if(c.i === null){ offen.push(a.name); return; }
+    if(m === 'kasse' && c.s === null){ offen.push(a.name+' (Soll fehlt)'); }
+    items.push({a:a.id, v:c.v, z:c.z, k:c.k, s:c.soll, i:c.i, d:c.diff});
+    if(c.diff !== null){ sumStk += c.diff; sumEur += c.eur||0; }
+    if(c.auffaellig) dev.push({n:a.name, d:c.diff, e:c.eur});
+  });
+  if(!items.length){ alert('Bitte mindestens einen Ist-Bestand eintragen.'); return; }
+  if(offen.length && !confirm(offen.length+' Artikel ohne vollständige Zählung:\n\n'+offen.slice(0,12).join('\n')+(offen.length>12?'\n…':'')+'\n\nTrotzdem speichern?')) return;
+  var te = zigTodayEntry();
+  if(te && !confirm('Heute wurde bereits gezählt ('+te.ma+', '+te.ts+').\n\nDiese Zählung ersetzen?')) return;
+  sumEur = Math.round(sumEur*100)/100;
+  var entry = {id:'zig_'+today, date:today, ts:new Date().toLocaleString('de-DE'), ma:ma, methode:m,
+               items:items, dev:dev, sumStk:sumStk, sumEur:sumEur, n:items.length, of:arts.length};
+  zigStoreEntry(entry);
+  try{ localStorage.removeItem('prima_zigDraft_'+today); }catch(e){}
+  _zigDraft = {};
+
+  if(dev.length){
+    try{
+      mitarbeiterNachrichten.push({ts:entry.ts, name:ma,
+        text:'🚬 Zigaretten-Inventur: '+dev.length+' Abweichung(en), gesamt '+(sumStk>0?'+':'')+sumStk+' Stk / '+zigEur(sumEur)+' – '+dev.slice(0,5).map(function(x){return x.n+' '+(x.d>0?'+':'')+x.d;}).join(', ')+(dev.length>5?' …':''),
+        schicht:slbls[st.schicht]||'', gelesen:false, type:'inventur'});
+      lsSave('mitNachrichten', mitarbeiterNachrichten);
+      updateSLBadge();
+    }catch(e){}
+    alert('⚠️ '+dev.length+' Abweichung(en) gespeichert:\n\n'+dev.map(function(x){ return x.n+': '+(x.d>0?'+':'')+x.d+' Stk'+(x.e?' ('+zigEur(x.e)+')':''); }).join('\n')+'\n\nDer Schichtleiter wurde informiert.');
+  } else {
+    alert('✅ Zählung gespeichert'+(m!=='zaehlen'?' – keine Abweichungen.':'.'));
+  }
+  if(_zigTaskId){ try{ markDone(_zigTaskId); }catch(e){} var tid=_zigTaskId; _zigTaskId=null; go('s-cl'); try{ renderCL(); }catch(e){} return; }
+  renderZigInv();
+}
+
+// Speichern mit Zusammenführung: vorher Firebase-Stand holen, damit Zählungen anderer Tablets nicht verloren gehen
+function zigStoreEntry(entry){
+  var merge = function(list){
+    var map = {};
+    (Array.isArray(list)?list:[]).concat(zigInvHistory).forEach(function(h){ if(h && h.id) map[h.id] = h; });
+    map[entry.id] = entry;
+    var cutoff = new Date(); cutoff.setDate(cutoff.getDate() - ZIG_KEEP_DAYS);
+    var cut = cutoff.toISOString().slice(0,10);
+    zigInvHistory = Object.keys(map).map(function(k){ return map[k]; }).filter(function(h){ return h.date >= cut; })
+      .sort(function(a,b){ return a.date.localeCompare(b.date); });
+    lsSave('zigInvHistory', zigInvHistory);
+  };
+  // 1. sofort lokal sichern (offline-sicher, ohne Firebase-Schreibzugriff)
+  var tmp = zigInvHistory.filter(function(h){ return h.id !== entry.id; }).concat([entry]);
+  zigInvHistory = tmp; lsSaveLocal('zigInvHistory', tmp);
+  // 2. Online: erst aktuellen Firebase-Stand holen, zusammenführen, dann schreiben
+  if(fbReady && db){
+    try{
+      db.collection('prima').doc('zigInvHistory').get().then(function(d){
+        var remote = [];
+        if(d.exists){ try{ remote = JSON.parse(d.data().data); }catch(e){} }
+        merge(remote);
+      }).catch(function(){ merge([]); });
+    }catch(e){ merge([]); }
+  } else {
+    merge([]);
+  }
+}
+
+function renderZigVerlauf(body){
+  var list = zigInvHistory.slice().sort(function(a,b){ return b.date.localeCompare(a.date); }).slice(0,14);
+  var wrap = document.createElement('div');
+  wrap.innerHTML = '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#999;margin:20px 2px 8px;">📅 Letzte Zählungen</div>';
+  if(!list.length){ wrap.innerHTML += '<div style="text-align:center;color:#bbb;padding:18px;font-size:13px;">Noch keine Zählungen</div>'; body.appendChild(wrap); return; }
+  var artName = {}; zigInvConfig.artikel.forEach(function(a){ artName[a.id] = a.name; });
+  list.forEach(function(h){
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#fff;border-radius:11px;padding:11px 13px;margin-bottom:7px;box-shadow:0 1px 5px rgba(0,0,0,.06);cursor:pointer;';
+    var hasDiff = h.methode !== 'zaehlen';
+    var col = !hasDiff ? '#334155' : (h.dev && h.dev.length ? '#b91c1c' : '#15803d');
+    card.innerHTML = '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">'+
+      '<div><div style="font-size:13px;font-weight:800;">'+['So','Mo','Di','Mi','Do','Fr','Sa'][new Date(h.date+'T12:00:00').getDay()]+' '+zigFmtDate(h.date)+'</div>'+
+      '<div style="font-size:11px;color:#888;">'+zigEsc(h.ma)+' · '+h.n+'/'+h.of+' Artikel</div></div>'+
+      '<div style="text-align:right;font-size:12px;font-weight:800;color:'+col+';">'+(hasDiff ? ((h.dev&&h.dev.length)?'⚠️ '+h.dev.length+' Abw.<br>':'✅ ')+(h.sumStk>0?'+':'')+h.sumStk+' Stk · '+zigEur(h.sumEur) : 'gezählt')+'</div></div>';
+    var det = document.createElement('div'); det.style.display = 'none';
+    det.innerHTML = '<div style="border-top:1px solid #f0f0f0;margin-top:8px;padding-top:6px;font-size:12px;">'+
+      (h.items||[]).map(function(it){
+        var dcol = it.d===null||it.d===undefined ? '#888' : (it.d===0 ? '#15803d' : '#b91c1c');
+        return '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #f3f3f3;"><span>'+zigEsc(artName[it.a]||'(gelöschter Artikel)')+'</span>'+
+          '<span style="color:#555;">Ist '+it.i+(it.s!==null&&it.s!==undefined?' · Soll '+it.s:'')+(it.d!==null&&it.d!==undefined?' · <strong style="color:'+dcol+';">'+(it.d>0?'+':'')+it.d+'</strong>':'')+'</span></div>';
+      }).join('')+'</div>';
+    card.appendChild(det);
+    card.onclick = function(){ det.style.display = det.style.display === 'none' ? 'block' : 'none'; };
+    wrap.appendChild(card);
+  });
+  body.appendChild(wrap);
+}
+
+// ── Info-Kachel Status ──
+function zigUpdateInfoTile(){
+  var sub = document.getElementById('zig-tile-sub'); if(!sub) return;
+  var tile = document.getElementById('zig-tile');
+  if(tile) tile.style.display = zigInvConfig.aktiv ? 'flex' : 'none';
+  var te = zigTodayEntry();
+  if(!zigAktiveArtikel().length) sub.textContent = 'Noch nicht eingerichtet (Admin)';
+  else if(te) sub.textContent = '✅ Heute gezählt von '+te.ma+(te.dev&&te.dev.length?' · ⚠️ '+te.dev.length+' Abweichung(en)':'');
+  else if(zigIsOverdue()) sub.textContent = '🔴 Heute noch offen – fällig seit '+zigInvConfig.faelligAb+' Uhr';
+  else if(zigIsDueToday()) sub.textContent = 'Heute fällig ab '+zigInvConfig.faelligAb+' Uhr · '+zigAktiveArtikel().length+' Artikel';
+  else sub.textContent = 'Heute nicht fällig · '+zigAktiveArtikel().length+' Artikel';
+}
+
+// ── Schichtleiter-Dashboard Karte ──
+function zigBuildSLCard(container){
+  if(!zigInvConfig.aktiv || !zigAktiveArtikel().length) return;
+  container.appendChild(mkSec('🚬 Zigaretten-Inventur'));
+  var c = document.createElement('div'); c.className = 'sl-card';
+  var te = zigTodayEntry();
+  if(te){
+    var hasDiff = te.methode !== 'zaehlen';
+    c.innerHTML = '<div style="font-size:13px;font-weight:700;color:'+(te.dev&&te.dev.length?'#b91c1c':'#16a34a')+';">'+
+      (te.dev&&te.dev.length ? '⚠️ '+te.dev.length+' Abweichung(en)' : '✅ Gezählt')+' · '+zigEsc(te.ma)+' · '+zigEsc((te.ts||'').split(', ')[1]||te.ts)+'</div>'+
+      (hasDiff ? '<div style="font-size:12px;color:#555;margin-top:3px;">Summe: '+(te.sumStk>0?'+':'')+te.sumStk+' Stk · '+zigEur(te.sumEur)+'</div>' : '')+
+      (te.dev||[]).map(function(x){ return '<div class="sl-item"><div class="si-name"><span class="status-dot sd-red"></span>'+zigEsc(x.n)+'</div><div class="si-detail">'+(x.d>0?'+':'')+x.d+' Stk'+(x.e?' · '+zigEur(x.e):'')+'</div></div>'; }).join('');
+  } else {
+    var od = zigIsOverdue();
+    c.innerHTML = '<div style="font-size:13px;font-weight:600;color:'+(od?'#ef4444':'#888')+';">'+
+      (od ? '🚨 Noch nicht gezählt (fällig seit '+zigInvConfig.faelligAb+' Uhr)' : (zigIsDueToday() ? '⏳ Heute fällig ab '+zigInvConfig.faelligAb+' Uhr' : 'Heute keine Zählung geplant'))+'</div>';
+  }
+  // 7-Tage-Bilanz
+  var cut = new Date(); cut.setDate(cut.getDate()-7); var cs = cut.toISOString().slice(0,10);
+  var w = zigInvHistory.filter(function(h){ return h.date > cs && h.methode !== 'zaehlen'; });
+  if(w.length){
+    var ws = w.reduce(function(s,h){ return s+(h.sumEur||0); },0), wk = w.reduce(function(s,h){ return s+(h.sumStk||0); },0);
+    c.innerHTML += '<div style="font-size:11px;color:#888;margin-top:6px;border-top:1px solid #f0f0f0;padding-top:6px;">Letzte 7 Tage: '+w.length+' Zählungen · '+(wk>0?'+':'')+wk+' Stk · '+zigEur(ws)+'</div>';
+  }
+  var b = document.createElement('button');
+  b.style.cssText = 'margin-top:8px;background:#fff7ed;border:1.5px solid #fdba74;color:#9a3412;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;';
+  b.textContent = '🚬 Zählung öffnen';
+  b.onclick = function(){ openZigInv(); _zigBackTo = 's-sl'; };
+  c.appendChild(b);
+  container.appendChild(c);
+}
+
+// ── Admin-Konsole ──
+function renderAdminZigInv(body, mkSecFn){
+  mkSecFn('🚬 Zigaretten-Inventur');
+  var cfg = zigInvConfig;
+  var card = document.createElement('div'); card.className = 'a-card';
+  var inp = 'border:1.5px solid #e0e0e0;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;background:#fff;';
+  var tageLbl = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+  card.innerHTML =
+    '<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;margin-bottom:12px;cursor:pointer;"><input type="checkbox" id="zig-a-aktiv" '+(cfg.aktiv?'checked':'')+' style="width:18px;height:18px;"> Tägliche Zigaretten-Inventur aktiv</label>'+
+    '<div class="a-label" style="margin-bottom:4px;">Abgleich-Methode</div>'+
+    '<select id="zig-a-methode" style="'+inp+'width:100%;margin-bottom:4px;">'+Object.keys(ZIG_METHODEN).map(function(k){ return '<option value="'+k+'"'+(cfg.methode===k?' selected':'')+'>'+ZIG_METHODEN[k].lbl+' – '+ZIG_METHODEN[k].sub+'</option>'; }).join('')+'</select>'+
+    '<div style="font-size:11px;color:#888;margin-bottom:12px;">Empfehlung: „Soll aus Kasse“, wenn eure Kasse einen Tabak-Bestand führt – sonst „Soll berechnen“.</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">'+
+      '<div><div class="a-label" style="margin-bottom:4px;">Fällig ab (Uhrzeit)</div><input type="time" id="zig-a-zeit" value="'+zigEsc(cfg.faelligAb)+'" style="'+inp+'width:100%;box-sizing:border-box;"></div>'+
+      '<div><div class="a-label" style="margin-bottom:4px;">Toleranz (± Stück)</div><input type="number" id="zig-a-tol" min="0" step="1" value="'+(Number(cfg.toleranz)||0)+'" style="'+inp+'width:100%;box-sizing:border-box;"></div>'+
+    '</div>'+
+    '<div class="a-label" style="margin-bottom:6px;">An diesen Tagen zählen</div>'+
+    '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;">'+[1,2,3,4,5,6,0].map(function(d){
+      return '<label style="display:flex;align-items:center;gap:4px;background:#f4f4f4;border-radius:8px;padding:6px 9px;font-size:12px;font-weight:700;cursor:pointer;"><input type="checkbox" data-zigtag="'+d+'" '+(cfg.tage.indexOf(d)!==-1?'checked':'')+'>'+tageLbl[d]+'</label>';
+    }).join('')+'</div>'+
+    '<button id="zig-a-save" style="width:100%;background:#c2410c;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">💾 Einstellungen speichern</button>';
+  body.appendChild(card);
+  card.querySelector('#zig-a-save').onclick = function(){
+    cfg.aktiv = card.querySelector('#zig-a-aktiv').checked;
+    cfg.methode = card.querySelector('#zig-a-methode').value;
+    cfg.faelligAb = card.querySelector('#zig-a-zeit').value || '21:00';
+    cfg.toleranz = Math.max(0, parseInt(card.querySelector('#zig-a-tol').value,10)||0);
+    cfg.tage = Array.prototype.slice.call(card.querySelectorAll('[data-zigtag]')).filter(function(c){return c.checked;}).map(function(c){return parseInt(c.getAttribute('data-zigtag'),10);});
+    zigSaveCfg(); alert('✅ Einstellungen gespeichert'); renderAdmin();
+  };
+
+  // Artikelliste (aufklappbar)
+  var wrap = document.createElement('div'); wrap.style.marginBottom = '6px';
+  var btn = document.createElement('button');
+  btn.style.cssText = 'width:100%;background:#f4f4f4;border:none;border-radius:10px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;color:#333;';
+  btn.innerHTML = '<span>📦 Artikel ('+zigAktiveArtikel().length+' aktiv / '+cfg.artikel.length+' gesamt)</span><span id="zig-a-arrow">'+(window._zigAdminOpen?'▲':'▼')+'</span>';
+  var lst = document.createElement('div'); lst.className = 'a-card'; lst.style.marginTop = '4px'; lst.style.display = window._zigAdminOpen ? 'block' : 'none';
+  btn.onclick = function(){ window._zigAdminOpen = !window._zigAdminOpen; lst.style.display = window._zigAdminOpen ? 'block' : 'none'; document.getElementById('zig-a-arrow').textContent = window._zigAdminOpen ? '▲' : '▼'; };
+  wrap.appendChild(btn);
+  if(!cfg.artikel.length) lst.innerHTML = '<div style="padding:10px 0;font-size:13px;color:#bbb;text-align:center;">Noch keine Artikel – einzeln anlegen oder Liste importieren</div>';
+  cfg.artikel.forEach(function(a, idx){
+    var row = document.createElement('div'); row.className = 'a-row';
+    row.innerHTML = '<div style="flex:1;opacity:'+(a.aktiv===false?'.45':'1')+';"><div class="a-label">'+zigEsc(a.name)+'</div><div class="a-sub">'+zigEsc(a.gruppe||'Sonstiges')+(a.preis?' · '+zigEur(a.preis):'')+(a.ean?' · EAN '+zigEsc(a.ean):'')+(a.aktiv===false?' · pausiert':'')+'</div></div>';
+    var bw = document.createElement('div'); bw.style.cssText = 'display:flex;gap:4px;flex-shrink:0;margin-left:6px;align-items:center;';
+    var mk = function(t, css, fn){ var b = document.createElement('button'); b.textContent = t; b.style.cssText = 'border:none;border-radius:7px;padding:5px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;'+css; b.onclick = function(e){ e.stopPropagation(); fn(); }; bw.appendChild(b); };
+    mk('↑','background:#f4f4f4;color:#555;', function(){ if(idx>0){ var t = cfg.artikel[idx-1]; cfg.artikel[idx-1] = cfg.artikel[idx]; cfg.artikel[idx] = t; zigSaveCfg(); renderAdmin(); } });
+    mk('↓','background:#f4f4f4;color:#555;', function(){ if(idx<cfg.artikel.length-1){ var t = cfg.artikel[idx+1]; cfg.artikel[idx+1] = cfg.artikel[idx]; cfg.artikel[idx] = t; zigSaveCfg(); renderAdmin(); } });
+    mk('✏️','background:#e8f0fe;color:#1a56db;', function(){ zigEditArtikel(a.id); });
+    mk('Löschen','background:#fee2e2;color:#dc2626;', function(){ if(confirm('„'+a.name+'“ löschen?\n\nTipp: Zum vorübergehenden Ausblenden lieber über ✏️ „pausieren“.')){ cfg.artikel.splice(idx,1); zigSaveCfg(); renderAdmin(); } });
+    row.appendChild(bw); lst.appendChild(row);
+  });
+  var addB = document.createElement('button');
+  addB.style.cssText = 'width:100%;background:#fff7ed;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;color:#9a3412;cursor:pointer;font-family:inherit;margin-top:8px;';
+  addB.textContent = '+ Artikel hinzufügen'; addB.onclick = function(){ zigEditArtikel(null); };
+  lst.appendChild(addB);
+  var impB = document.createElement('button');
+  impB.style.cssText = 'width:100%;background:#f4f4f4;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;color:#444;cursor:pointer;font-family:inherit;margin-top:6px;';
+  impB.textContent = '📋 Liste einfügen (mehrere Artikel auf einmal)'; impB.onclick = zigImportDialog;
+  lst.appendChild(impB);
+  wrap.appendChild(lst);
+  body.appendChild(wrap);
+
+  var exp = document.createElement('button'); exp.className = 'a-add'; exp.style.background = '#7c2d12';
+  exp.textContent = '📤 Zählungen als CSV exportieren ('+zigInvHistory.length+' Tage)'; exp.onclick = exportZigCSV;
+  body.appendChild(exp);
+}
+
+function zigModal(html, onOk, okLabel){
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:600;display:flex;align-items:center;justify-content:center;padding:18px;';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:16px;padding:18px;width:100%;max-width:420px;max-height:88vh;overflow-y:auto;box-sizing:border-box;';
+  box.innerHTML = html + '<div style="display:flex;gap:8px;margin-top:14px;"><button data-x style="flex:1;background:#f4f4f4;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Abbrechen</button>'+
+    '<button data-ok style="flex:2;background:#c2410c;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">'+(okLabel||'💾 Speichern')+'</button></div>';
+  ov.appendChild(box); document.body.appendChild(ov);
+  box.querySelector('[data-x]').onclick = function(){ ov.remove(); };
+  box.querySelector('[data-ok]').onclick = function(){ if(onOk(box) !== false) ov.remove(); };
+  var f = box.querySelector('input,textarea'); if(f) setTimeout(function(){ f.focus(); }, 60);
+}
+
+function zigEditArtikel(id){
+  var cfg = zigInvConfig, a = id ? cfg.artikel.find(function(x){ return x.id === id; }) : null;
+  var inp = 'width:100%;box-sizing:border-box;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:14px;font-family:inherit;margin-bottom:10px;';
+  var lbl = 'font-size:11px;font-weight:700;color:#666;display:block;margin-bottom:3px;';
+  zigModal('<div style="font-size:17px;font-weight:900;margin-bottom:12px;">'+(a?'✏️ Artikel bearbeiten':'+ Neuer Artikel')+'</div>'+
+    '<label style="'+lbl+'">Bezeichnung *</label><input id="zig-e-name" value="'+zigEsc(a?a.name:'')+'" placeholder="z. B. Marlboro Red 20er" style="'+inp+'">'+
+    '<label style="'+lbl+'">Gruppe</label><input id="zig-e-gruppe" list="zig-e-gl" value="'+zigEsc(a?a.gruppe:cfg.gruppen[0])+'" style="'+inp+'"><datalist id="zig-e-gl">'+cfg.gruppen.map(function(g){ return '<option value="'+zigEsc(g)+'">'; }).join('')+'</datalist>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'+
+      '<div><label style="'+lbl+'">VK-Preis / Packung (€)</label><input id="zig-e-preis" type="number" step="0.01" min="0" value="'+(a&&a.preis?a.preis:'')+'" style="'+inp+'"></div>'+
+      '<div><label style="'+lbl+'">EAN (optional)</label><input id="zig-e-ean" inputmode="numeric" value="'+zigEsc(a?a.ean||'':'')+'" style="'+inp+'"></div>'+
+    '</div>'+
+    '<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer;"><input type="checkbox" id="zig-e-aktiv" '+(!a||a.aktiv!==false?'checked':'')+' style="width:18px;height:18px;"> Wird täglich gezählt (aus = pausiert)</label>',
+  function(box){
+    var name = box.querySelector('#zig-e-name').value.trim();
+    if(!name){ alert('Bitte eine Bezeichnung eingeben.'); return false; }
+    var gruppe = box.querySelector('#zig-e-gruppe').value.trim() || 'Sonstiges';
+    var obj = a || {id:'za'+Date.now().toString(36)+Math.random().toString(36).slice(2,5)};
+    obj.name = name; obj.gruppe = gruppe;
+    obj.preis = Math.round((parseFloat(String(box.querySelector('#zig-e-preis').value).replace(',','.'))||0)*100)/100;
+    obj.ean = box.querySelector('#zig-e-ean').value.trim();
+    obj.aktiv = box.querySelector('#zig-e-aktiv').checked;
+    if(!a) cfg.artikel.push(obj);
+    if(cfg.gruppen.indexOf(gruppe) === -1) cfg.gruppen.push(gruppe);
+    zigSaveCfg(); window._zigAdminOpen = true; renderAdmin();
+  });
+}
+
+function zigImportDialog(){
+  zigModal('<div style="font-size:17px;font-weight:900;margin-bottom:6px;">📋 Artikelliste einfügen</div>'+
+    '<div style="font-size:12px;color:#666;line-height:1.5;margin-bottom:8px;">Eine Zeile pro Artikel: <strong>Name; Gruppe; Preis; EAN</strong><br>Gruppe, Preis und EAN sind optional. Direkt aus Excel kopierbar (Tab-getrennt geht auch). Vorhandene Namen werden übersprungen.</div>'+
+    '<textarea id="zig-imp" rows="10" placeholder="Marlboro Red 20er; Zigaretten; 10,00\nL&amp;M Blue Label; Zigaretten; 9,10\nPall Mall Tabak 120g; Tabak; 25,95" style="width:100%;box-sizing:border-box;border:1.5px solid #e0e0e0;border-radius:9px;padding:10px;font-size:13px;font-family:inherit;"></textarea>',
+  function(box){
+    var cfg = zigInvConfig, lines = box.querySelector('#zig-imp').value.split(/\r?\n/), added = 0, skipped = 0;
+    var have = {}; cfg.artikel.forEach(function(a){ have[a.name.trim().toLowerCase()] = true; });
+    lines.forEach(function(l, i){
+      var p = l.split(/[;\t]/).map(function(x){ return x.trim(); });
+      if(!p[0]) return;
+      if(have[p[0].toLowerCase()]){ skipped++; return; }
+      var g = p[1] || 'Zigaretten';
+      cfg.artikel.push({id:'za'+Date.now().toString(36)+i+Math.random().toString(36).slice(2,4), name:p[0], gruppe:g,
+        preis: Math.round((parseFloat((p[2]||'').replace('€','').replace(',','.'))||0)*100)/100, ean:p[3]||'', aktiv:true});
+      if(cfg.gruppen.indexOf(g) === -1) cfg.gruppen.push(g);
+      have[p[0].toLowerCase()] = true; added++;
+    });
+    if(!added && !skipped){ alert('Keine Zeilen erkannt.'); return false; }
+    zigSaveCfg(); window._zigAdminOpen = true;
+    alert('✅ '+added+' Artikel importiert'+(skipped?' · '+skipped+' bereits vorhanden':''));
+    renderAdmin();
+  }, '📥 Importieren');
+}
+
+function exportZigCSV(){
+  if(!zigInvHistory.length){ alert('Noch keine Zählungen vorhanden.'); return; }
+  var artName = {}, artPreis = {};
+  zigInvConfig.artikel.forEach(function(a){ artName[a.id] = a.name; artPreis[a.id] = a.preis||0; });
+  var n = function(v){ return v===null||v===undefined ? '' : String(v); };
+  var lines = ['Datum;Gezählt von;Methode;Artikel;Vortag;Zugang;Verkauft;Soll;Ist;Differenz Stk;Differenz €'];
+  zigInvHistory.slice().sort(function(a,b){ return a.date.localeCompare(b.date); }).forEach(function(h){
+    (h.items||[]).forEach(function(it){
+      var eur = it.d===null||it.d===undefined ? '' : (it.d*(artPreis[it.a]||0)).toFixed(2).replace('.',',');
+      lines.push([zigFmtDate(h.date), h.ma, (ZIG_METHODEN[h.methode]||{}).lbl||h.methode, (artName[it.a]||'(gelöscht)').replace(/;/g,','), n(it.v), n(it.z), n(it.k), n(it.s), n(it.i), n(it.d), eur].join(';'));
+    });
+  });
+  var blob = new Blob(['﻿'+lines.join('\r\n')], {type:'text/csv;charset=utf-8'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'Prima_Zigaretten_Inventur_'+zigToday()+'.csv';
+  document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 
 // ═══════════════════════════════════════════
